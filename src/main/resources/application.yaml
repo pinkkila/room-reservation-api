@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: room-reservation-api
+  sql:
+    init:
+      mode: always
+  data:
+    web:
+      pageable:
+        serialization-mode: via_dto
