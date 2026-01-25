@@ -2,7 +2,6 @@ package com.pinkkila.roomreservationapi.exception;
 
 import com.pinkkila.roomreservationapi.reservation.exception.ReservationNotFoundException;
 import com.pinkkila.roomreservationapi.reservation.exception.RoomNotFoundException;
-import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -18,7 +17,6 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-import java.net.URI;
 import java.util.List;
 import java.util.stream.Collectors;
 

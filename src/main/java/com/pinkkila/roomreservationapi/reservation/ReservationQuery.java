@@ -5,10 +5,6 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 
-/**
- * DTO for reservation query parameters.
- * Defaults are applied in the compact constructor.
- */
 public record ReservationQuery(
         @Min(0)
         Integer page,

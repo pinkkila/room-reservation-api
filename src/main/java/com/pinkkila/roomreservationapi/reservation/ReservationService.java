@@ -12,7 +12,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.MethodArgumentNotValidException;import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -28,20 +28,17 @@ public class ReservationService {
     public Page<ReservationResponse> getReservations(ReservationQuery query) {
         log.info("Fetching reservations with query: {}", query);
 
-        // 3.2 Validate sortBy against whitelist
         List<String> allowedSortFields = List.of("id", "startTime", "endTime", "roomId");
         if (!allowedSortFields.contains(query.sortBy())) {
             log.warn("Invalid sortBy field: {}", query.sortBy());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid sortBy field: " + query.sortBy());
         }
 
-        // 3.3 Verify room existence if roomId provided
         if (query.roomId() != null && !roomRepository.existsById(query.roomId())) {
             log.warn("Room not found: {}", query.roomId());
             throw new RoomNotFoundException("Room with ID " + query.roomId() + " not found");
         }
 
-        // 3.4 Build PageRequest and call repository
         Sort.Direction direction = Sort.Direction.fromString(query.sortOrder());
         Pageable pageable = PageRequest.of(query.page(), query.size(), Sort.by(direction, query.sortBy()));
 
@@ -52,7 +49,6 @@ public class ReservationService {
             reservationsPage = reservationRepository.findAll(pageable);
         }
 
-        // 3.5 Map Page<Reservation> to Page<ReservationResponse>
         return reservationsPage.map(this::mapToResponse);
     }
 
