@@ -10,7 +10,6 @@ import org.springframework.data.relational.core.mapping.Table;
 import java.time.OffsetDateTime;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @Table("reservation")

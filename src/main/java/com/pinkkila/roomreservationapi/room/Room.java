@@ -11,7 +11,6 @@ import org.springframework.data.relational.core.mapping.Table;
  * Entity representing a room available for reservation.
  */
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @Table("room")
