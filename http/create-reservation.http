@@ -1,0 +1,9 @@
+### Create Reservation
+PUT http://localhost:8080/api/reservations
+Content-Type: application/json
+
+{
+  "roomId": 1,
+  "startTime": "2027-01-26T19:28:00+02:00",
+  "endTime":   "2027-01-26T20:00:00+02:00"
+}

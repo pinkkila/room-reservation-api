@@ -1,0 +1,9 @@
+### Delete Reservation
+DELETE http://localhost:8080/api/reservations/1
+
+### Delete with -1
+DELETE http://localhost:8080/api/reservations/-1
+
+### Delete with x
+DELETE http://localhost:8080/api/reservations/x
+

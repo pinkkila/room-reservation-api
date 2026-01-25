@@ -4,6 +4,7 @@ import com.pinkkila.roomreservationapi.reservation.exception.ReservationNotFound
 import com.pinkkila.roomreservationapi.reservation.exception.RoomNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
@@ -47,17 +49,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
         problemDetail.setTitle("Invalid Parameter Type");
-        return problemDetail;
-    }
-
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ProblemDetail handleConstraintViolationException(ConstraintViolationException ex) {
-        log.warn("Constraint violation: {}", ex.getMessage());
-        String detail = ex.getConstraintViolations().stream()
-                .map(cv -> cv.getPropertyPath() + ": " + cv.getMessage())
-                .collect(Collectors.joining(", "));
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
-        problemDetail.setTitle("Constraint Violation");
         return problemDetail;
     }
 
@@ -110,4 +101,28 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         return createResponseEntity(problemDetail, headers, status, request);
     }
+    
+    
+    @Override
+    protected ResponseEntity<Object> handleHandlerMethodValidationException(
+            HandlerMethodValidationException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+
+        List<String> errors = ex.getParameterValidationResults().stream()
+                .flatMap(result -> result.getResolvableErrors().stream())
+                .map(MessageSourceResolvable::getDefaultMessage)
+                .toList();
+
+        log.warn("Method validation failed: {}", errors);
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(status, "Invalid method parameters testing");
+        problemDetail.setTitle("Validation Failed");
+        problemDetail.setProperty("errors", errors);
+
+        return createResponseEntity(problemDetail, headers, status, request);
+    }
+
+
 }

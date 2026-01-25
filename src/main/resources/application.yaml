@@ -8,3 +8,7 @@ spring:
     web:
       pageable:
         serialization-mode: via_dto
+logging:
+  level:
+    org.springframework.web: trace
+#    org.springframework.data: trace

@@ -3720,4 +3720,182 @@ This approach ensures that our tests are:
 
 ---
 
+**Prompti 37**
+
+What the @ResponseStatus annotation does in this ReservationNotFoundException @file:ReservationNotFoundException.java class? There is also separate handler method for ReservationNotFoundException in the GlobalExceptionHandler @file:GlobalExceptionHandler.java
+
+**Junie (ask mode)**
+
+In this project, the @ResponseStatus(HttpStatus.NOT_FOUND) annotation on the ReservationNotFoundException class and the @ExceptionHandler method in GlobalExceptionHandler work together, but they have a specific order of precedence:
+
+1. Precedence of @ExceptionHandler
+
+When an exception is thrown, Spring looks for a matching @ExceptionHandler method first. Since GlobalExceptionHandler is annotated with @RestControllerAdvice and contains a method explicitly handling ReservationNotFoundException, that method takes precedence.
+   
+The handleReservationNotFoundException method in GlobalExceptionHandler is what actually executes. It performs the following:
+   
+- Logs a warning message.
+
+- Constructs a ProblemDetail object (following the RFC 9457 standard required by your project guidelines).
+
+- Explicitly sets the status to HttpStatus.NOT_FOUND and the title to "Reservation Not Found".
+
+2. The Role of @ResponseStatus
+
+In its current state, the @ResponseStatus(HttpStatus.NOT_FOUND) on the exception class itself is effectively redundant but serves as a fallback and documentation:
+   
+- Fallback: If you were to remove the specific handler from GlobalExceptionHandler, Spring would still know to return a 404 status code because of this annotation. Without it (and without a handler), Spring would default to a 500 Internal Server Error.
+   
+- Documentation: It makes the intended HTTP status code immediately visible to any developer looking at the exception class, without them having to check the global handler.
+   
+- Metadata: Some Spring components (like ResponseStatusExceptionResolver) use this annotation to determine the status if no other handling is found.
+   
+Summary
+   
+While the @ExceptionHandler in GlobalExceptionHandler is the one doing the heavy lifting (enabling the "Enterprise-level" ProblemDetail response and logging), the @ResponseStatus annotation acts as a declarative safety net and documentation for the exception's intended meaning.
+
+--- 
+
+**Prompti 38**
+
+What does the @Repository annotation do in the ReservationRepository @file:ReservationRepository.java ?
+
+**Junie (ask mode)**
+
+In the ReservationRepository class, the @Repository annotation serves three primary purposes within the Spring Framework:
+
+1. Exception Translation
+
+The most significant technical role of @Repository is to enable automatic exception translation. It tells Spring to intercept any platform-specific exceptions (such as SQLException from the PostgreSQL driver) and re-throw them as one of Spring's unchecked data access exceptions (from the DataAccessException hierarchy).
+   
+This allows your service layer (e.g., ReservationService) to handle database errors in a consistent, technology-agnostic way, regardless of whether you are using JDBC, JPA, or another persistence technology.
+
+2. Component Scanning and Bean Creation
+   
+By using @Repository, you mark the interface as a Spring-managed component. During the application startup, Spring's component scanning mechanism detects this annotation and automatically creates a proxy implementation of the interface, registering it as a bean in the Application Context. This allows you to use @Autowired (or constructor injection) to inject the repository into your services.
+   
+Note: While Spring Data repositories that extend interfaces like ListCrudRepository are often detected automatically even without this annotation, including it is a best practice for clarity and to ensure exception translation is active.
+
+3. Semantic Layering (DDD)
+
+Architecturally, @Repository is a specialization of the @Component annotation. It identifies the class as a Data Access Object (DAO) or a Repository following Domain-Driven Design (DDD) patterns.
+   
+- It signifies that this component is responsible for the storage, retrieval, and search behavior which emulates a collection of objects. 
+- It helps developers and tools (like IDEs) quickly identify the role of the class within the project's layered architecture.
+   
+Summary in Context
+   
+In your ReservationRepository, the annotation ensures that:
+   
+- The repository is found by Spring. 
+- Database errors are translated into readable Spring exceptions.
+- It clearly follows the project's architecture as the persistence layer for the Reservation entity.
+
+
+---
+
+**Prompti 39**
+
+Why there is @Validated annotation in this ReservationController @file:ReservationController.java class?
+
+
+**Junie (ask mode)**
+
+In the ReservationController class, the @Validated annotation is required to enable Method-Level Validation for individual method parameters that are not part of a request body or a model object.
+
+1. Validating Simple Parameters (Path Variables)
+While Spring automatically validates objects annotated with @Valid (like your ReservationRequest and ReservationQuery), it does not automatically validate simple parameters like @PathVariable, @RequestParam, or @RequestHeader unless the class is marked with @Validated.
+   
+In your controller, this is specifically needed for the deleteReservation method:
+
+```java
+   @DeleteMapping("/{reservationId}")
+   public ResponseEntity<Void> deleteReservation(@PathVariable @Positive Long reservationId) { ... }
+```
+   
+The @Positive constraint on the reservationId would be ignored by Spring if the @Validated annotation were missing from the class level.
+
+2. How it Works
+   
+- Spring Proxy: Adding @Validated at the class level tells Spring to create a proxy for the controller.
+   
+- AOP Interception: When a method is called, the proxy intercepts the call and uses the Jakarta Bean Validation engine to check any constraints (like @Positive, @Min, @NotNull, etc.) placed directly on the method parameters.
+   
+- Exception Type: If validation of these simple parameters fails, Spring throws a ConstraintViolationException. This is different from @Valid on a @RequestBody, which throws a MethodArgumentNotValidException.
+
+3. Integration with Global Error Handling
+   Your project is set up to handle this specifically in the GlobalExceptionHandler.java:
+
+```jave
+   @ExceptionHandler(ConstraintViolationException.class)
+   public ProblemDetail handleConstraintViolationException(ConstraintViolationException ex) {
+   // Logic to return a "Constraint Violation" ProblemDetail response
+   }
+```
+   
+By using @Validated in the controller, you ensure that invalid path variables (e.g., /api/reservations/-5) are caught immediately and return a consistent 400 Bad Request response with a clear error message, rather than potentially causing errors deeper in the service or database layer.
+
+Summary
+   
+The @Validated annotation is the "switch" that allows Spring to enforce the @Positive constraint on your reservationId path variable, ensuring the API only processes valid, positive IDs.
+
+---
+
+**Prompti 40**
+
+I removed @Validated annotation, and tested what exception negative path variable creates, and it was HandlerMethodValidationException. Would it be more convenient to override that in the GlobalExceptionHandler than use @Validated annotation with separate ConstraintViolationException handler?
+
+**Junie (ask mode)**
+
+Yes, it is generally more convenient and considered a best practice in modern Spring applications (Spring Boot 3.2+ / Spring 6.1+) to use the native HandlerMethodValidationException for controllers instead of the older @Validated + ConstraintViolationException approach.
+
+Your observation is correct: Spring 6.1 introduced built-in support for method validation in Spring MVC, which removes the need for the AOP-based @Validated proxy on controller classes.
+
+Why HandlerMethodValidationException is preferred for Controllers
+
+1. No Proxy Overhead: By removing @Validated from the controller class, Spring no longer needs to create a CGLIB proxy for your controller. Validation is handled directly by the Spring MVC invocation mechanism.
+
+2. Native Integration: HandlerMethodValidationException is specifically designed for web contexts. It provides ParameterValidationResult objects, which make it much easier to identify which path variable or query parameter failed and why.
+
+3. Unified Handling: Since your GlobalExceptionHandler already extends ResponseEntityExceptionHandler, you can override handleHandlerMethodValidationException. This allows you to handle path variables and query parameters in a very similar way to how you handle @RequestBody errors (MethodArgumentNotValidException).
+
+4. Automatic RFC 9457 Support: This exception implements the ErrorResponse interface, meaning it has built-in support for ProblemDetail, which aligns perfectly with your project's requirement for "Enterprise-level" error handling.
+
+How to implement it in your GlobalExceptionHandler
+
+Instead of relying on a generic @ExceptionHandler for ConstraintViolationException (which is a Jakarta Validation exception, not a Spring Web one), you can override the dedicated method in your GlobalExceptionHandler:
+
+```java
+@Override
+protected ResponseEntity<Object> handleHandlerMethodValidationException(
+HandlerMethodValidationException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+
+    // Extracting messages similarly to how you did with MethodArgumentNotValidException
+    List<String> errors = ex.getAllValidationResults().stream()
+            .flatMap(result -> result.getResolvableErrors().stream())
+            .map(MessageSourceResolvable::getDefaultMessage)
+            .toList();
+
+    log.warn("Method validation failed: {}", errors);
+
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(status, "Invalid method parameters");
+    problemDetail.setTitle("Validation Failed");
+    problemDetail.setProperty("errors", errors);
+
+    return createResponseEntity(problemDetail, headers, status, request);
+}
+```
+
+Important: Don't delete the ConstraintViolationException handler yet
+
+While you should use the new mechanism for Controllers, you should still keep the ConstraintViolationException handler in your GlobalExceptionHandler if:
+
+- You use @Validated on Service classes.
+-  You use @Validated on Repositories.
+
+In those layers (outside of Spring MVC controllers), validation still uses the AOP proxy approach and will continue to throw ConstraintViolationException.
+
+Summary
+
+Using HandlerMethodValidationException is the modern "Spring-way" for web validation. It simplifies your controllers by removing redundant annotations and provides a cleaner, more integrated way to generate standardized error responses for the client.
 
