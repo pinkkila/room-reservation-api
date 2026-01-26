@@ -35,7 +35,6 @@ public class ReservationService {
         }
 
         if (query.roomId() != null && !roomRepository.existsById(query.roomId())) {
-            log.warn("Room not found: {}", query.roomId());
             throw new RoomNotFoundException(query.roomId());
         }
 
@@ -57,7 +56,6 @@ public class ReservationService {
         log.info("Creating reservation for room: {}", request.roomId());
 
         if (!roomRepository.existsById(request.roomId())) {
-            log.warn("Room not found: {}", request.roomId());
             throw new RoomNotFoundException(request.roomId());
         }
 
@@ -78,7 +76,6 @@ public class ReservationService {
         log.info("Deleting reservation: {}", reservationId);
 
         if (!reservationRepository.existsById(reservationId)) {
-            log.warn("Reservation not found: {}", reservationId);
             throw new ReservationNotFoundException(reservationId);
         }
 
