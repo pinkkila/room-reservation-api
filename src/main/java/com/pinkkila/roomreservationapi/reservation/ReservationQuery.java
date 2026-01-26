@@ -15,7 +15,7 @@ public record ReservationQuery(
 
         String sortBy,
 
-        @Pattern(regexp = "^(asc|desc)$")
+        @Pattern(regexp = "^(asc|desc)$", message = "Sort order must be 'asc' or 'desc'")
         String sortOrder,
 
         @Positive

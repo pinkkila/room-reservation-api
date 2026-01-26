@@ -1,0 +1,36 @@
+### Get Reservations
+GET http://localhost:8080/api/reservations
+
+
+### Get Reservations roomId=1
+GET http://localhost:8080/api/reservations?roomId=1
+
+### Get Reservations page=1
+GET http://localhost:8080/api/reservations?page=1
+
+### Get Reservations sortBy=id
+GET http://localhost:8080/api/reservations?sortBy=id
+
+### Get Reservations sortOrder=desc
+GET http://localhost:8080/api/reservations?sortOrder=desc
+
+### Get Reservations size=100
+GET http://localhost:8080/api/reservations?size=100
+
+
+
+
+### Get Reservations roomId=-1
+GET http://localhost:8080/api/reservations?roomId=-1
+
+
+### Get Reservations size=10000
+GET http://localhost:8080/api/reservations?size=10000
+
+
+### Get Reservations sortBy=xxx
+GET http://localhost:8080/api/reservations?sortBy=xxx
+
+
+### Get Reservations roomId=x
+GET http://localhost:8080/api/reservations?roomId=x

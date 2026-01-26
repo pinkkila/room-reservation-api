@@ -3899,3 +3899,484 @@ Summary
 
 Using HandlerMethodValidationException is the modern "Spring-way" for web validation. It simplifies your controllers by removing redundant annotations and provides a cleaner, more integrated way to generate standardized error responses for the client.
 
+---
+
+
+**Prompti 41**
+
+Now ProblemDetails reponses have this type value "about:blank". I don't want to maintain documentation about the problems. How I should configure this ProblemDetail type value. What are my options and what are pros and cons of them?
+
+**Junie (ask mode)**
+
+Search in project "ProblemDetail"
+
+The search found 49 occurrences of "ProblemDetail" across multiple files, including exception handling and documentation related to error responses.
+
+The type field in the RFC 9457 (Problem Details) specification is intended to be a URI that identifies the specific problem type. By default, Spring uses about:blank when no specific URI is provided, indicating that there is no additional documentation beyond the title and detail.
+
+If you want to avoid about:blank but also don't want to maintain a documentation site, you have several architectural options.
+
+1. Options for the type Value
+ 
+Option A: Use URNs (Uniform Resource Names)
+   
+Instead of a URL (locator), use a URN (name).
+   
+- Example: urn:problem-type:reservation-not-found 
+- Pros: Explicitly defines the error type for machine consumption without implying that a webpage exists. It is perfectly valid according to RFC 9457. 
+- Cons: Not clickable/dereferenceable for a developer looking at the response.
+   
+Option B: Use Relative URIs
+- Example: /errors/room-not-found
+- Pros: Short and identifies the error relative to your API.
+- Cons: Tools or browsers might try to resolve this against your base URL, leading to 404 Not Found if you don't actually host a page there.
+   
+Option C: Use a Generic Documentation URL
+   
+Point all errors to a single static page or your main API documentation.
+- Example: https://api.example.com/docs/errors 
+- Pros: Professional look; only one page to maintain.
+- Cons: Doesn't provide specific information for each different error type.
+   
+Option D: Logical Absolute URIs (without hosting)
+- Example: https://api.roomreservation.com/errors/not-found 
+- Pros: Professional and follows industry standard naming conventions.
+- Cons: Misleading if a developer tries to visit the link and gets a 404.
+
+
+2. How to Configure it in Your Project
+   
+Since you are using a GlobalExceptionHandler that extends ResponseEntityExceptionHandler, you can configure the type programmatically.
+   
+Implementation Strategy
+   
+You can add a helper method to your GlobalExceptionHandler to ensure consistency and reduce boilerplate
+
+```java
+private void setProblemType(ProblemDetail problemDetail, String errorKey) {
+    // Option A: Using URNs (Recommended for no documentation)
+    problemDetail.setType(URI.create("urn:problem-type:" + errorKey));
+    
+    // OR Option B: Using a logical URL (even if it doesn't exist yet)
+    // problemDetail.setType(URI.create("https://api.roomreservation.com/errors/" + errorKey));
+}
+```
+
+Then use it in your exception handlers:
+
+```java
+@ExceptionHandler(RoomNotFoundException.class)
+public ProblemDetail handleRoomNotFoundException(RoomNotFoundException ex) {
+    log.warn("Room not found: {}", ex.getMessage());
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    problemDetail.setTitle("Room Not Found");
+    setProblemType(problemDetail, "room-not-found"); // Setting the type here
+    return problemDetail;
+}
+```
+
+3. Making it Configurable
+   
+If you want to avoid hardcoding the base URI, you can add a property to your application.yaml:
+
+```yaml
+app:
+  error-type-prefix: "urn:problem-type:"
+And inject it into your GlobalExceptionHandler:
+@Value("${app:error-type-prefix}")
+private String errorTypePrefix;
+
+private void setProblemType(ProblemDetail pd, String errorKey) {
+    pd.setType(URI.create(errorTypePrefix + errorKey));
+}
+```
+
+Recommendation
+
+If you do not want to maintain documentation, Option A (URNs) is the most technically correct choice. It provides a unique machine-readable identifier for each error (which allows clients to handle specific errors programmatically) without the overhead of hosting and updating HTML documentation pages.
+
+---
+
+**Prompti 42**
+
+To be able to get correct ProblemDetail detail when DataIntegrityViolationException is thrown, I need to get cause and verify if it is instance of org.postgresql.util.PSQLException . For that I probably need to change this:
+runtimeOnly 'org.postgresql:postgresql'
+to this:
+implementation 'org.postgresql:postgresql'
+Does that have any drawbacks?
+And also is my approach correct here? Or is there better ways to implement this? Take a look at the schema.sql @file:schema.sql  and this GlobalExceptionHandler @file:GlobalExceptionHandler.java  and then give me your analysis. I want to which constrain is violated and then set detail accordingly.
+
+**Junie (ask mode)**
+
+To provide a high-quality ProblemDetail response when a DataIntegrityViolationException occurs, your proposed approach is correct and follows industry standards for projects committed to a specific database technology.
+
+1. Analysis of implementation vs runtimeOnly
+   
+2. Changing the PostgreSQL dependency from runtimeOnly to implementation in build.gradle is necessary if you want to use the PSQLException class directly in your Java code.
+   
+Drawbacks:
+- Compile-time Coupling: Your source code becomes dependent on the PostgreSQL driver. This means your project is no longer "database agnostic" at the source level. If you were to switch to another database (e.g., MySQL), this specific part of your GlobalExceptionHandler would cause a compilation error.
+   
+- Classpath Pollution: The driver classes are added to the compile classpath rather than just the runtime classpath.
+   
+Is it the right choice? Yes. Since your schema.sql already uses PostgreSQL-specific features like the btree_gist extension and EXCLUDE constraints, your project is already logically tied to PostgreSQL. Using the driver's structured error information is much more robust than parsing generic exception messages.
+
+2. Is the Approach Correct?
+   Yes, your approach of using NestedExceptionUtils.getMostSpecificCause(ex) to find the underlying PSQLException is the most reliable way to extract the constraint name. This allows you to differentiate between a foreign key violation, a check constraint failure, and an exclusion (overlap) violation.
+
+3. Constraint Analysis and Implementation
+ 
+Based on your schema.sql, here are the constraints you should handle:
+
+| Constraint Name                         | Type        | Meaning                               | Recommended ErrorType        |
+|----------------------------------------|-------------|---------------------------------------|------------------------------|
+| start_before_end                       | CHECK       | Start time is after end time.         | INVALID_RESERVATION_TIME    |
+| start_in_future                        | CHECK       | Reservation starts in the past.       | INVALID_RESERVATION_TIME    |
+| reservation_room_id_tstzrange_excl     | EXCLUSION   | Room is already booked (overlap).     | OVERLAPPING_RESERVATION     |
+| reservation_room_id_fkey               | FOREIGN KEY | Room ID does not exist.               | ROOM_NOT_FOUND              |
+
+Note: If not explicitly named, the exclusion constraint usually defaults to reservation_room_id_tstzrange_excl. It is a best practice to name it explicitly in schema.sql using CONSTRAINT reservation_overlap_excl EXCLUDE ....
+
+```java
+public enum ErrorType {
+    // ... existing values ...
+    OVERLAPPING_RESERVATION("overlapping-reservation", "Overlapping Reservation"),
+    INVALID_RESERVATION_TIME("invalid-reservation-time", "Invalid Reservation Time"),
+    DATA_CONFLICT("data-conflict", "Data Conflict");
+    // ...
+}
+```
+
+Refactored GlobalExceptionHandler.java
+
+Here is how you can implement the mapping logic cleanly
+
+```java
+@ExceptionHandler(DataIntegrityViolationException.class)
+public ProblemDetail handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+    
+    if (cause instanceof org.postgresql.util.PSQLException psqlException) {
+        var serverError = psqlException.getServerErrorMessage();
+        if (serverError != null && serverError.getConstraint() != null) {
+            String constraint = serverError.getConstraint();
+            log.warn("Data integrity violation: constraint={}", constraint);
+            
+            return switch (constraint) {
+                case "start_before_end" -> 
+                    createProblemDetail(HttpStatus.CONFLICT, "The start time must be before the end time.", ErrorType.INVALID_RESERVATION_TIME);
+                case "start_in_future" -> 
+                    createProblemDetail(HttpStatus.CONFLICT, "The reservation must start in the future.", ErrorType.INVALID_RESERVATION_TIME);
+                case "reservation_room_id_tstzrange_excl" -> 
+                    createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+                case "reservation_room_id_fkey" -> 
+                    createProblemDetail(HttpStatus.NOT_FOUND, "The specified room does not exist.", ErrorType.ROOM_NOT_FOUND);
+                default -> 
+                    createProblemDetail(HttpStatus.CONFLICT, "Operation violates database constraint: " + constraint, ErrorType.DATA_CONFLICT);
+            };
+        }
+    }
+    
+    log.error("Unexpected data integrity violation", ex);
+    return createProblemDetail(HttpStatus.CONFLICT, "The requested operation conflicts with existing data.", ErrorType.DATA_CONFLICT);
+}
+```
+
+4. Summary of Recommendations
+
+   1. Change to implementation 'org.postgresql:postgresql': This is acceptable for a PostgreSQL-centric application.
+   2.Use getServerErrorMessage().getConstraint(): This is the cleanest way to identify the specific error.
+   3. Name your constraints: For better maintainability, consider naming the exclusion constraint in schema.sql so your Java code doesn't rely on generated names.
+   4. Centralize mapping: Using a switch or a Map in the handler keeps the logic clean and easy to extend as you add more constraints.
+
+---
+
+**Prompti 43**
+
+Take a close look at the ReservationContoller @file:ReservationController.java , ReservationQuery @file:ReservationQuery.java  , schema.sql @file:schema.sql  and this GlobalExceptionHandler @file:GlobalExceptionHandler.java  and this method:
+
+```java
+@ExceptionHandler(DataIntegrityViolationException.class)
+public ProblemDetail handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+    
+    if (cause instanceof org.postgresql.util.PSQLException psqlException) {
+        var serverError = psqlException.getServerErrorMessage();
+        if (serverError != null && serverError.getConstraint() != null) {
+            String constraint = serverError.getConstraint();
+            
+            return switch (constraint) {
+                case "reservation_room_id_tstzrange_excl" ->
+                        createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+                case "start_before_end" ->
+                        createProblemDetail(HttpStatus.BAD_REQUEST, "The start time must be before the end time.", ErrorType.INVALID_RESERVATION_TIME);
+                case "start_in_future" ->
+                        createProblemDetail(HttpStatus.BAD_REQUEST, "The reservation must start in the future.", ErrorType.INVALID_RESERVATION_TIME);
+                case "reservation_room_id_fkey" ->
+                        createProblemDetail(HttpStatus.NOT_FOUND, "The requested room does not exist.", ErrorType.ROOM_NOT_FOUND);
+                default ->
+                        createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+            };
+        }
+    }
+    
+    log.error("Unexpected data integrity violation", ex);
+    return createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+}
+```
+
+If the validation works properly, only exception that should happen in this method is the reservation_room_id_tstzrange_excl and those others act as a defense in depth. This should be commented so that it is clear why this is implemented like this. There should also be proper logging to inform that validation is not working properly.
+
+
+**Junie (ask mode)**
+
+Search in project "ReservationRequest"
+
+The search for "ReservationRequest" found multiple occurrences across source and test files, including its use in service, controller, and test classes.
+
+To address your requirements for GlobalExceptionHandler.java, we need to add descriptive comments explaining the "defense in depth" strategy and implement logging for the constraints that should theoretically be caught by application-level validation.
+
+Analysis of Validation Coverage
+
+As you noted, most of these constraints are already handled before reaching the database:
+- start_before_end: Covered by the @ValidReservationRange custom validator on ReservationRequest.
+- start_in_future: Covered by @Future annotations on startTime and endTime in ReservationRequest.
+- reservation_room_id_fkey: Covered by the roomRepository.existsById(request.roomId()) check in ReservationService.
+
+The reservation_room_id_tstzrange_excl (room overlap) is the only one that can reliably fail at the database level due to race conditions (concurrency), where the state changes between the application's check and the actual insert.
+
+Updated Implementation
+
+Here is the refined handleDataIntegrityViolationException method:
+
+```java
+    /**
+     * Handles {@link DataIntegrityViolationException} by mapping PostgreSQL constraint violations 
+     * to specific {@link ProblemDetail} responses.
+     * <p>
+     * <b>Defense in Depth Strategy:</b>
+     * Most constraints handled here (CHECK constraints and Foreign Keys) are already validated 
+     * at the application level (Jakarta Bean Validation and manual service checks). 
+     * If application-level validation is functioning correctly, only the exclusion constraint 
+     * ('reservation_room_id_tstzrange_excl') should ever be triggered under normal circumstances 
+     * (e.g., due to race conditions).
+     * <p>
+     * Triggering any other constraint indicates a bypass or failure in the application's 
+     * validation logic and is logged as an error.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+        Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+        
+        if (cause instanceof org.postgresql.util.PSQLException psqlException) {
+            var serverError = psqlException.getServerErrorMessage();
+            if (serverError != null && serverError.getConstraint() != null) {
+                String constraint = serverError.getConstraint();
+                
+                return switch (constraint) {
+                    case "reservation_room_id_tstzrange_excl" ->
+                            createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+                    
+                    case "start_before_end" -> {
+                        log.error("Validation bypass detected: 'start_before_end' constraint violated. Check @ValidReservationRange logic.");
+                        yield createProblemDetail(HttpStatus.BAD_REQUEST, "The start time must be before the end time.", ErrorType.INVALID_RESERVATION_TIME);
+                    }
+                    
+                    case "start_in_future" -> {
+                        log.error("Validation bypass detected: 'start_in_future' constraint violated. Check @Future annotations in ReservationRequest.");
+                        yield createProblemDetail(HttpStatus.BAD_REQUEST, "The reservation must start in the future.", ErrorType.INVALID_RESERVATION_TIME);
+                    }
+                    
+                    case "reservation_room_id_fkey" -> {
+                        log.error("Validation bypass detected: 'reservation_room_id_fkey' constraint violated. Check existence check in ReservationService.");
+                        yield createProblemDetail(HttpStatus.NOT_FOUND, "The requested room does not exist.", ErrorType.ROOM_NOT_FOUND);
+                    }
+                    
+                    default -> {
+                        log.warn("Unexpected database constraint violation: {}", constraint);
+                        yield createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+                    }
+                };
+            }
+        }
+        
+        log.error("Unexpected data integrity violation", ex);
+        return createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+    
+```
+
+Key Changes:
+1. Documentation: Added a detailed Javadoc explaining the architectural decision to include these "redundant" checks as a safety net.
+2. Explicit Logging: Added log.error calls for cases that should have been caught by the UI/API validation layers. This makes these events highly visible in logs for debugging.
+3. Switch Expressions: Used block-style switch branches with yield to allow for side-effecting (logging) while remaining clean.
+4. Specific Error Messages: Kept the specific error messages and ErrorType mappings so the client still receives a helpful response even if a validation layer was bypassed.
+
+---
+
+**Prompti 44**
+
+Take a close look at the ReservationContoller, ReservationRequest, ReservationQuery and GlovalExceptionHanlder. What is the most robust way to configure handleMethodArgumentNotValid method in GlobalExceptionHandler?   @file:GlobalExceptionHandler.java  @file:ReservationController.java @file:ReservationRequest.java @file:ReservationQuery.java
+
+**Junie (ask mode)**
+
+To configure handleMethodArgumentNotValid in a robust and readable way, you should address three main areas: distinguishing the source of the validation error (Request Body vs. Query Parameters), handling all types of validation errors (Field vs. Object/Global), and maintaining consistency with your ErrorType and ProblemDetail structure.
+
+Robust implementation of handleMethodArgumentNotValid
+
+The most robust way to distinguish between a RequestBody and a ReservationQuery (which is bound as a model attribute from query parameters) is to check the annotations on the MethodParameter via ex.getParameter().
+
+```java
+@Override
+protected ResponseEntity<Object> handleMethodArgumentNotValid(
+        MethodArgumentNotValidException ex,
+        @NonNull HttpHeaders headers,
+        @NonNull HttpStatusCode status,
+        @NonNull WebRequest request) {
+
+    // 1. Determine the context (Request Body vs Query Parameters)
+    boolean isRequestBody = ex.getParameter().hasParameterAnnotation(RequestBody.class);
+    ErrorType errorType = isRequestBody ? ErrorType.INVALID_REQUEST_BODY : ErrorType.INVALID_QUERY_PARAMETERS;
+    String detail = isRequestBody 
+            ? "The data provided in the request body is invalid." 
+            : "One or more query parameters provided in the URL are invalid.";
+
+    // 2. Reuse the helper method for consistency
+    ProblemDetail problemDetail = createProblemDetail(HttpStatus.valueOf(status.value()), detail, errorType);
+
+    // 3. Collect ALL errors (Field + Object/Global errors)
+    // Using getAllErrors() is crucial for class-level constraints like @ValidReservationRange
+    Map<String, String> errors = ex.getBindingResult().getAllErrors().stream()
+            .collect(Collectors.toMap(
+                    error -> error instanceof FieldError fieldError ? fieldError.getField() : error.getObjectName(),
+                    error -> error.getDefaultMessage() != null ? error.getDefaultMessage() : "Invalid value",
+                    (existing, replacement) -> existing + ", " + replacement
+            ));
+
+    problemDetail.setProperty("errors", errors);
+
+    log.warn("Validation failed for {}: {}", isRequestBody ? "request body" : "query parameters", errors);
+
+    return createResponseEntity(problemDetail, headers, status, request);
+}
+```
+
+Why this is the most robust approach:
+
+1. Annotation-Based Identification
+   
+Instead of checking HTTP methods or specific class types, checking for ex.getParameter().hasParameterAnnotation(RequestBody.class) is the most reliable way to know if Spring was attempting to deserialize a JSON body or bind URL parameters. This makes your handler generic and future-proof for any new DTOs you add.
+
+2. Handling Class-Level Constraints
+   
+Your ReservationRequest uses @ValidReservationRange, which is a class-level constraint. These constraints produce ObjectError objects, not FieldError objects. Using ex.getBindingResult().getAllErrors() ensures that logic like "start time must be before end time" is actually returned to the client in the errors map.
+
+3. DRY and Consistent
+
+By utilizing your existing createProblemDetail helper method, you ensure that the title and type (URN) are always correctly mapped from your ErrorType enum, following the RFC 9457 standard consistently across the entire application.
+
+4. Clearer Client Feedback
+   Mapping errors to a Map<String, String> where keys are field names (or the object name for global errors) provides the most actionable feedback for API consumers, allowing them to highlight specific UI fields or handle business rule violations programmatically.
+   
+Summary of fixes for your current code:
+   
+- Fix the syntax error: The empty else if () block at line 123 is replaced by a clean logical split.
+- Fix the typo: Removed the extra "d"s in "invalidddd".
+- Improved validation coverage: Switched from getFieldErrors() to getAllErrors() to catch class-level validation failures.
+- Log cleanup: Combined the logs into a single, informative warning message.
+
+---
+
+
+**Prompti 45**
+
+I would like to prevent this happening:
+
+```
+### Get Reservations roomId=x
+GET http://localhost:8080/api/reservations?roomId=x
+```
+
+returns: { "type": "urn:room-reservation-api:invalid-query-parameters", "title": "Invalid Query Parameters", "status": 400, "detail": "One or more query parameters provided in the URL are invalid.", "instance": "/api/reservations", "errors": { "roomId": "Failed to convert value of type 'java.lang.String' to required type 'java.lang.Integer'; For input string: "x"" } }
+
+I don't like that there is that 'java.lang.String' because it exposes the internal implementation details to the users. What is the cleanes way to change that message to "Invalid value"?
+
+Run command
+
+find . -name "messages.properties"
+
+To cleanly replace the technical binding error message with a generic "Invalid value" without exposing internal implementation details, the most robust way is to use the isBindingFailure() method from Spring's FieldError class.
+This method allows you to distinguish between a binding failure (e.g., a type mismatch like string "x" to Integer) and a validation failure (e.g., a @Positive constraint violation).
+
+Cleanest Implementation in GlobalExceptionHandler.java
+You can update your handleMethodArgumentNotValid method to use a helper logic that inspects the error type.
+
+```java
+@Override
+protected ResponseEntity<Object> handleMethodArgumentNotValid(
+        MethodArgumentNotValidException ex,
+        @NonNull HttpHeaders headers,
+        @NonNull HttpStatusCode status,
+        @NonNull WebRequest request) {
+
+    boolean isRequestBody = ex.getParameter().hasParameterAnnotation(RequestBody.class);
+    ErrorType errorType = isRequestBody ? ErrorType.INVALID_REQUEST_BODY : ErrorType.INVALID_QUERY_PARAMETERS;
+    String detail = isRequestBody
+            ? "The data provided in the request body is invalid."
+            : "One or more query parameters provided in the URL are invalid.";
+
+    ProblemDetail problemDetail = createProblemDetail(HttpStatus.valueOf(status.value()), detail, errorType);
+
+    Map<String, String> errors = ex.getBindingResult().getAllErrors().stream()
+            .collect(Collectors.toMap(
+                    // Use field name for FieldErrors, or object name for global/class-level errors
+                    error -> error instanceof FieldError fieldError ? fieldError.getField() : error.getObjectName(),
+                    // Resolve the message: use "Invalid value" for binding failures
+                    this::resolveErrorMessage,
+                    // Merge function for multiple errors on the same field
+                    (existing, replacement) -> existing + ", " + replacement
+            ));
+
+    problemDetail.setProperty("errors", errors);
+
+    log.warn("Validation failed for {}: {}", isRequestBody ? "request body" : "query parameters", errors);
+
+    return createResponseEntity(problemDetail, headers, status, request);
+}
+
+/**
+ * Resolves the error message. If the error is a binding failure (like a type mismatch),
+ * it returns a generic "Invalid value" to avoid leaking internal implementation details.
+ */
+private String resolveErrorMessage(ObjectError error) {
+    if (error instanceof FieldError fieldError && fieldError.isBindingFailure()) {
+        return "Invalid value";
+    }
+    String message = error.getDefaultMessage();
+    return (message != null) ? message : "Invalid value";
+}
+```
+
+Why this is the best approach:
+1. Generic and Scalable: It works for all fields and all types (Integer, Long, LocalDate, etc.). You don't need to manually check for specific fields or "typeMismatch" strings.
+2. Privacy/Security: It completely hides the technical details like java.lang.String or java.lang.Integer from the client, meeting your requirement of not exposing internal details.
+3. Preserves Validation Messages: It only overrides the technical binding errors. If a user provides a negative number for roomId (e.g., ?roomId=-1), they will still see your custom validation message: "Room ID must be positive number".
+4. Professional Mapping: Replacing "Unknown field" with error.getObjectName() ensures that class-level constraints (like your @ValidReservationRange) have a meaningful key in the error map instead of a generic placeholder.
+
+```json
+{
+  "type": "urn:room-reservation-api:invalid-query-parameters",
+  "title": "Invalid Query Parameters",
+  "status": 400,
+  "detail": "One or more query parameters provided in the URL are invalid.",
+  "instance": "/api/reservations",
+  "errors": {
+    "roomId": "Invalid value"
+  }
+}
+```
+
+This is clean, professional, and follows the guidelines for maintainable and production-ready code.
+
+---
+
+
