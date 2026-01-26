@@ -1,7 +1,7 @@
 package com.pinkkila.roomreservationapi.exception;
 
 import com.pinkkila.roomreservationapi.reservation.exception.ReservationNotFoundException;
-import com.pinkkila.roomreservationapi.reservation.exception.RoomNotFoundException;
+import com.pinkkila.roomreservationapi.room.exception.RoomNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.context.MessageSourceResolvable;

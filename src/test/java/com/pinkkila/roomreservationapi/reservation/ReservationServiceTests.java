@@ -1,7 +1,7 @@
 package com.pinkkila.roomreservationapi.reservation;
 
 import com.pinkkila.roomreservationapi.reservation.exception.ReservationNotFoundException;
-import com.pinkkila.roomreservationapi.reservation.exception.RoomNotFoundException;
+import com.pinkkila.roomreservationapi.room.exception.RoomNotFoundException;
 import com.pinkkila.roomreservationapi.room.RoomRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

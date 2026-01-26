@@ -486,7 +486,7 @@ Changes made:
 
 - Includes SLF4J logging for all handled exceptions.
 
-- Dependency: Created com.pinkkila.roomreservationapi.reservation.exception.RoomNotFoundException to enable the global
+- Dependency: Created com.pinkkila.roomreservationapi.room.exception.RoomNotFoundException to enable the global
   handler to catch this specific business exception.
 
 - Documentation: Updated /ai-docs/feature-plans/create-reservation-plan.md to mark steps 1.3 and 1.4 as completed.
@@ -692,7 +692,7 @@ Changes made:
 
 - Step 3.3: Created com.pinkkila.roomreservationapi.reservation.ReservationResponse record for API responses.
 
-- Step 3.4: Verified the existing com.pinkkila.roomreservationapi.reservation.exception.RoomNotFoundException.
+- Step 3.4: Verified the existing com.pinkkila.roomreservationapi.room.exception.RoomNotFoundException.
 
 - Step 3.5: Created com.pinkkila.roomreservationapi.reservation.ReservationRepository extending ListCrudRepository.
 

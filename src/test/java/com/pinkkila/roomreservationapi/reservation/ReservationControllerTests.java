@@ -2,7 +2,7 @@ package com.pinkkila.roomreservationapi.reservation;
 
 import com.pinkkila.roomreservationapi.exception.GlobalExceptionHandler;
 import com.pinkkila.roomreservationapi.reservation.exception.ReservationNotFoundException;
-import com.pinkkila.roomreservationapi.reservation.exception.RoomNotFoundException;
+import com.pinkkila.roomreservationapi.room.exception.RoomNotFoundException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -137,7 +137,7 @@ class ReservationControllerTests {
         @DisplayName("Creation for non-existent room should return 404 Not Found")
         void createReservation_RoomNotFound_Returns404() throws Exception {
             when(reservationService.createReservation(any(ReservationRequest.class)))
-                    .thenThrow(new RoomNotFoundException("Room with ID 999 not found"));
+                    .thenThrow(new RoomNotFoundException(999));
 
             String requestJson = """
                     {
@@ -288,7 +288,7 @@ class ReservationControllerTests {
         @DisplayName("Should return 404 when filtering by non-existent roomId")
         void shouldReturn404WhenRoomNotFound() throws Exception {
             when(reservationService.getReservations(any(ReservationQuery.class)))
-                    .thenThrow(new RoomNotFoundException("Room with ID 999 not found"));
+                    .thenThrow(new RoomNotFoundException(999));
 
             mockMvc.perform(get("/api/reservations")
                             .param("roomId", "999"))
@@ -314,7 +314,7 @@ class ReservationControllerTests {
         @Test
         @DisplayName("Should return 404 Not Found when reservation does not exist")
         void shouldReturn404WhenNotFound() throws Exception {
-            doThrow(new ReservationNotFoundException("Reservation with ID 99 not found"))
+            doThrow(new ReservationNotFoundException(99L))
                     .when(reservationService).deleteReservation(99L);
 
             mockMvc.perform(delete("/api/reservations/99"))

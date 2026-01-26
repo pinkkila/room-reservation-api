@@ -1,7 +1,7 @@
 package com.pinkkila.roomreservationapi.reservation;
 
 import com.pinkkila.roomreservationapi.reservation.exception.ReservationNotFoundException;
-import com.pinkkila.roomreservationapi.reservation.exception.RoomNotFoundException;
+import com.pinkkila.roomreservationapi.room.exception.RoomNotFoundException;
 import com.pinkkila.roomreservationapi.room.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +36,7 @@ public class ReservationService {
 
         if (query.roomId() != null && !roomRepository.existsById(query.roomId())) {
             log.warn("Room not found: {}", query.roomId());
-            throw new RoomNotFoundException("Room with ID " + query.roomId() + " not found");
+            throw new RoomNotFoundException(query.roomId());
         }
 
         Sort.Direction direction = Sort.Direction.fromString(query.sortOrder());
@@ -58,7 +58,7 @@ public class ReservationService {
 
         if (!roomRepository.existsById(request.roomId())) {
             log.warn("Room not found: {}", request.roomId());
-            throw new RoomNotFoundException("Room with ID " + request.roomId() + " not found");
+            throw new RoomNotFoundException(request.roomId());
         }
 
         Reservation reservation = Reservation.builder()
@@ -79,7 +79,7 @@ public class ReservationService {
 
         if (!reservationRepository.existsById(reservationId)) {
             log.warn("Reservation not found: {}", reservationId);
-            throw new ReservationNotFoundException("Reservation with ID " + reservationId + " not found");
+            throw new ReservationNotFoundException(reservationId);
         }
 
         reservationRepository.deleteById(reservationId);
