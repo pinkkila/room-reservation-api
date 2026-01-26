@@ -1,5 +1,5 @@
 ### Create Reservation
-PUT http://localhost:8080/api/reservations
+POST http://localhost:8080/api/reservations
 Content-Type: application/json
 
 {
@@ -7,3 +7,50 @@ Content-Type: application/json
   "startTime": "2027-01-26T19:28:00+02:00",
   "endTime":   "2027-01-26T20:00:00+02:00"
 }
+
+
+### Create Reservation roomId 999
+POST http://localhost:8080/api/reservations
+Content-Type: application/json
+
+{
+  "roomId": 999,
+  "startTime": "2027-01-26T19:28:00+02:00",
+  "endTime":   "2027-01-26T20:00:00+02:00"
+}
+
+
+### Create Reservation startTime xx
+POST http://localhost:8080/api/reservations
+Content-Type: application/json
+
+{
+  "roomId": 1,
+  "startTime": "xx",
+  "endTime":   "2027-01-26T20:00:00+02:00"
+}
+
+
+### Create Reservation startTime ""
+POST http://localhost:8080/api/reservations
+Content-Type: application/json
+
+{
+  "roomId": 1,
+  "startTime": "",
+  "endTime":   "2027-01-26T20:00:00+02:00"
+}
+
+
+### Create Reservation roomId "x"
+POST http://localhost:8080/api/reservations
+Content-Type: application/json
+
+{
+  "roomId": "x",
+  "startTime": "2027-01-26T19:28:00+02:00",
+  "endTime":   "2027-01-26T20:00:00+02:00"
+}
+
+
+
