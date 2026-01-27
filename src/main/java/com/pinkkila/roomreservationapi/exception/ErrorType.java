@@ -13,7 +13,8 @@ public enum ErrorType {
     RESERVATION_ERROR("reservation-error", "Reservation Error"),
     INVALID_REQUEST_BODY("invalid-request-body", "Invalid Request Body"),
     INVALID_REQUEST_PARAMETERS("invalid-request-parameters", "Invalid Request Parameters"),
-    INVALID_PATH_PARAMETER("invalid-path-parameter", "Invalid Path Parameter");
+    INVALID_PATH_PARAMETER("invalid-path-parameter", "Invalid Path Parameter"),
+    INTERNAL_SERVER_ERROR("internal-server-error", "Internal Server Error");
     
     private static final String BASE_URN = "urn:room-reservation-api:";
     private final String slug;

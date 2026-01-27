@@ -4721,5 +4721,194 @@ Conclusion: You should switch to Set<String>. It is more efficient, more express
 
 ---
 
+**Prompti 49**
 
+Take a close look at the GlobalExceptionHandler class @file:GlobalExceptionHandler.java . Are those log messages and how logs are handled here considered good and following best practices? If not, how should I modify them?
 
+**Junie (ask mode)**
+
+Search in project "ErrorType"
+
+The search for "ErrorType" found one file defining it and multiple references to it in the exception handling code.
+
+Search in project "PII"
+
+No occurrences of the term "PII" were found in the project
+
+The GlobalExceptionHandler implementation is generally of high quality and follows several enterprise-level best practices, such as using the RFC 9457 (Problem Details) format, centralizing logic with @RestControllerAdvice, and correctly utilizing log levels. However, there are several areas where it can be improved to strictly adhere to the project's guidelines and security best practices, particularly regarding PII protection and log readability.
+
+Analysis of Current Implementation
+
+1. Redundancy and Log Message Content
+   
+Many log messages prefix the message with the exception class name (e.g., log.warn("RoomNotFoundException: {}", ex.getMessage());).
+- Issue: This is redundant because the logger configuration usually includes the source class, and the log level already indicates the severity.
+
+- Guideline: While not explicitly forbidden, "Enterprise-level" code should favor clean, descriptive business-event logging over technical exception dumps.
+
+2. Spelling and Typos
+   
+There are a few typos in the log messages within handleDataIntegrityViolationException:
+- Line 72: "constrain violated" should be "constraint violated".
+- Line 72: "occured" should be "occurred".
+
+3. PII and Confidentiality (Security)
+   
+The guidelines state: "Ensure that PII (Personally Identifiable Information), credentials, tokens, or other confidential data are never written to the logs."
+   
+- Issue in handleHttpMessageNotReadable: Logging ex.getMessage() can leak sensitive data. If a JSON payload is malformed near a sensitive field (like a password or email), Jackson's error message may include a snippet of the raw input.
+   
+- Issue in Validation Logging: Logging the entire errors map in handleMethodArgumentNotValid and handleHandlerMethodValidationException is risky. If a custom validator includes the invalid value in the error message (e.g., "Email 'user@example.com' is already taken"), PII is leaked into the logs.
+
+4. Consistency in Error Responses
+   
+The guidelines require "consistent error responses".
+
+- Issue: In handleMethodArgumentNotValid, the errors map is added to the ProblemDetail via setProperty("errors", errors). However, in handleHandlerMethodValidationException, the map is logged but not included in the returned response. This creates an inconsistent experience for clients debugging validation errors on path parameters vs. request bodies.
+
+5. Lack of Global Catch-all
+The class is missing a generic @ExceptionHandler(Exception.class) handler.
+   
+- Issue: Unexpected exceptions (like NullPointerException) might fallback to default Spring Boot handling. A custom handler ensures that even internal failures return a consistent ProblemDetail and are logged with the required log.error("...", ex) format.
+
+Recommended Modifications
+
+1. Sanitize and Refine Log Messages
+
+Instead of logging full exception messages or raw error maps, log the context and field names.
+
+```java
+// Instead of:
+log.warn("MethodArgumentNotValidException: Validation failed for {}: {}", isRequestBody ? "request body" : "request parameters", errors);
+
+// Use:
+log.warn("Validation failed for {}: fields={}", isRequestBody ? "body" : "parameters", errors.keySet());
+```
+
+2. Fix Typos and Remove Redundancy
+
+```java
+// Refined constraint log
+log.warn("Database constraint violation: 'reservation_overlap_excl' - overlapping reservation occurred.");
+```
+
+3. Ensure Response Consistency
+
+Update handleHandlerMethodValidationException to include the errors in the response.
+
+```java
+problemDetail.setProperty("errors", errors); // Add this before returning
+``` 
+
+4. Add a Generic Exception Handler
+
+This ensures all unexpected errors are logged as ERROR with the full stack trace and return a clean response.
+
+```java
+@ExceptionHandler(Exception.class)
+public ProblemDetail handleGeneralException(Exception ex) {
+    log.error("An unexpected error occurred", ex);
+    return createProblemDetail(HttpStatus.INTERNAL_SERVER_ERROR, 
+        "An internal server error occurred.", ErrorType.RESERVATION_ERROR);
+}
+```
+
+5. Protect Against PII in Malformed Requests
+
+```java
+   @Override
+   protected ResponseEntity<Object> handleHttpMessageNotReadable(...) {
+   log.warn("Failed to read request: Malformed JSON or invalid format"); // Static message to avoid PII
+   // ... rest of logic
+   }
+```
+
+Summary of Best Practices Followed
+
+- ✅ Package-by-Feature: Exceptions are correctly located.
+- ✅ ProblemDetail: Correct use of RFC 9457.
+- ✅ Proper Status Codes: 404 for Not Found, 409 for Conflict, 400 for Bad Request.
+- ✅ Defense in Depth: The DataIntegrityViolationException handler serves as a great safety net for race conditions or validation bypasses.
+- ✅ Lombok Slf4j: Correct use of @Slf4j and placeholders.
+- ✅ DTOs for Errors: Use of ErrorType enum for consistent URNs.
+
+---
+
+**Prompti 50**
+
+Can you give me fixed log messages to all logs that happen in this GlobalExceptionHandler class, please? @file:GlobalExceptionHandler.java
+
+**Junie**
+
+To align with enterprise best practices and your project guidelines—specifically regarding PII protection, removing redundancy, and fixing typos—here are the fixed log messages for the GlobalExceptionHandler class.
+
+1. Resource Not Found Handlers
+
+Remove the exception class prefix as it is redundant (the logger configuration and log level already provide enough context).
+
+```java
+// Line 37
+log.warn("Room not found: {}", ex.getMessage());
+
+// Line 43
+log.warn("Reservation not found: {}", ex.getMessage());
+```
+
+2. Data Integrity Handlers (PostgreSQL Constraints)
+
+Fix the typo "occured" to "occurred" and remove technical class prefixes. For unexpected bypasses, use ERROR level and include the exception object.
+
+```java
+// Line 72 (Fix typo and redundancy)
+log.warn("Database constraint violation: 'reservation_overlap_excl' - overlapping reservation occurred.");
+
+// Line 76
+log.error("Validation bypass detected: 'start_before_end' constraint violated. Check @ValidReservationRange logic.", ex);
+
+// Line 80
+log.error("Validation bypass detected: 'start_in_future' constraint violated. Check @Future annotations in ReservationRequest.", ex);
+
+// Line 84
+log.error("Validation bypass detected: 'reservation_room_id_fkey' constraint violated. Check existence check in ReservationService.", ex);
+
+// Line 88
+log.error("Unexpected database constraint violation: {}", constraint, ex);
+
+// Line 95
+log.error("Unexpected data integrity violation", ex);
+```
+
+3. Validation and Mapping Handlers (PII Protection)
+
+To prevent PII (Personally Identifiable Information) leaks, log only the field names (errors.keySet()) instead of the full error map, as error messages can sometimes contain the invalid input values.
+
+```java 
+// Line 101
+log.warn("Method argument type mismatch: {}", ex.getMessage());
+
+// Line 129 (Sanitize to avoid PII)
+log.warn("Validation failed for {}: fields={}", isRequestBody ? "body" : "parameters", errors.keySet());
+
+// Line 151 (Sanitize to avoid PII from malformed JSON snippets)
+log.warn("Failed to read request: Malformed JSON or invalid format");
+
+// Line 176 (Sanitize to avoid PII)
+log.warn("Method validation failed: fields={}", errors.keySet());
+```
+
+4. Global Catch-all
+
+Ensure the unexpected error is logged with the full exception stack trace.
+
+```java
+// Line 184
+log.error("An unexpected error occurred", ex);
+```
+
+Summary of Improvements
+- Security: Sanitize validation logs to ensure sensitive user data is never written to log files.
+- Readability: Cleaned up log messages by removing Java class names (e.g., DataIntegrityViolationException:).
+- Correctness: Fixed the spelling of "occurred".
+- Adherence: Strictly follows the project guideline: "Ensure that PII (Personally Identifiable Information) ... are never written to the logs."
+
+---

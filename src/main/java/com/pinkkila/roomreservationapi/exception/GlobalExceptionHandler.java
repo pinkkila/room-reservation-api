@@ -5,7 +5,6 @@ import com.pinkkila.roomreservationapi.room.exception.RoomNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.lang.NonNull;
-import org.springframework.context.MessageSourceResolvable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -18,8 +17,8 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -69,22 +68,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 String constraint = serverError.getConstraint();
                 
                 return switch (constraint) {
-                    case "reservation_overlap_excl" ->
-                            createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+                    case "reservation_overlap_excl" -> {
+                        log.warn("Database constraint violation: 'reservation_overlap_excl' - overlapping reservation occurred.");
+                        yield createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+                    }
                     case "start_before_end" -> {
-                        log.error("Validation bypass detected: 'start_before_end' constraint violated. Check @ValidReservationRange logic.");
+                        log.error("Validation bypass detected: 'start_before_end' constraint violated. Check @ValidReservationRange logic.", ex);
                         yield createProblemDetail(HttpStatus.BAD_REQUEST, "The start time must be before the end time.", ErrorType.INVALID_RESERVATION_TIME);
                     }
                     case "start_in_future" -> {
-                        log.error("Validation bypass detected: 'start_in_future' constraint violated. Check @Future annotations in ReservationRequest.");
+                        log.error("Validation bypass detected: 'start_in_future' constraint violated. Check @Future annotations in ReservationRequest.", ex);
                         yield createProblemDetail(HttpStatus.BAD_REQUEST, "The reservation must start in the future.", ErrorType.INVALID_RESERVATION_TIME);
                     }
                     case "reservation_room_id_fkey" -> {
-                        log.error("Validation bypass detected: 'reservation_room_id_fkey' constraint violated. Check existence check in ReservationService.");
+                        log.error("Validation bypass detected: 'reservation_room_id_fkey' constraint violated. Check existence check in ReservationService.", ex);
                         yield createProblemDetail(HttpStatus.NOT_FOUND, "The requested room does not exist.", ErrorType.ROOM_NOT_FOUND);
                     }
                     default -> {
-                        log.warn("Unexpected database constraint violation: {}", constraint);
+                        log.error("Unexpected database constraint violation: {}", constraint, ex);
                         yield createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
                     }
                 };
@@ -125,7 +126,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         
         problemDetail.setProperty("errors", errors);
         
-        log.warn("Validation failed for {}: {}", isRequestBody ? "request body" : "request parameters", errors);
+        log.warn("Validation failed for {}: fields={}", isRequestBody ? "body" : "parameters", errors.keySet());
         
         return createResponseEntity(problemDetail, headers, status, request);
     }
@@ -143,11 +144,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(
-            HttpMessageNotReadableException ex,
+            @NonNull HttpMessageNotReadableException ex,
             @NonNull HttpHeaders headers,
             @NonNull HttpStatusCode status,
             @NonNull WebRequest request) {
-        log.warn("Failed to read request: {}", ex.getMessage());
+        log.warn("Failed to read request: Malformed JSON or invalid format");
         
         ProblemDetail problemDetail = createProblemDetail(HttpStatus.valueOf(status.value()), "Malformed or invalid JSON payload", ErrorType.INVALID_REQUEST_BODY);
         return createResponseEntity(problemDetail, headers, status, request);
@@ -161,21 +162,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             @NonNull HttpStatusCode status,
             @NonNull WebRequest request) {
         
-        Map<String, String> errors = ex.getParameterValidationResults().stream()
-                .collect(Collectors.toMap(
-                        result -> result.getMethodParameter().getParameterName() != null
-                                ? result.getMethodParameter().getParameterName()
-                                : "parameter",
-                        result -> result.getResolvableErrors().stream()
-                                .map(MessageSourceResolvable::getDefaultMessage)
-                                .collect(Collectors.joining(", ")),
-                        (existing, replacement) -> existing + ", " + replacement
-                ));
-
-        log.warn("Method validation failed: {}", errors);
+        Set<String> fields = ex.getParameterValidationResults().stream()
+                .map(result -> result.getMethodParameter().getParameterName() != null
+                        ? result.getMethodParameter().getParameterName()
+                        : "parameter")
+                .collect(Collectors.toSet());
+        
+        log.warn("Method validation failed: fields={}", fields);
 
         ProblemDetail problemDetail = createProblemDetail(HttpStatus.valueOf(status.value()), "One or more path parameters are invalid.", ErrorType.INVALID_PATH_PARAMETER);
         return createResponseEntity(problemDetail, headers, status, request);
+    }
+    
+    @ExceptionHandler(Exception.class)
+    public ProblemDetail handleUnexpectedException(Exception ex) {
+        log.error("An unexpected error occurred", ex);
+        return createProblemDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An internal server error occurred.", ErrorType.INTERNAL_SERVER_ERROR);
     }
     
     
