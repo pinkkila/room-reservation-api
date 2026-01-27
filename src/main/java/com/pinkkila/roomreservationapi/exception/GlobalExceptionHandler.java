@@ -4,6 +4,8 @@ import com.pinkkila.roomreservationapi.reservation.exception.ReservationNotFound
 import com.pinkkila.roomreservationapi.room.exception.RoomNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.NestedExceptionUtils;
+import org.springframework.data.relational.core.conversion.DbAction;
+import org.springframework.data.relational.core.conversion.DbActionExecutionException;
 import org.springframework.lang.NonNull;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
@@ -18,6 +20,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -44,22 +47,35 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return createProblemDetail(HttpStatus.NOT_FOUND, ex.getMessage(), ErrorType.RESERVATION_NOT_FOUND);
     }
     
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        return resolveConstraintError(ex)
+                .orElseGet(() -> {
+                    log.error("Unexpected data integrity violation", ex);
+                    return createProblemDetail(HttpStatus.BAD_REQUEST, "Invalid data provided.", ErrorType.RESERVATION_ERROR);
+                });
+    }
+    
     /**
-     * Handles {@link DataIntegrityViolationException} by mapping PostgreSQL constraint violations
-     * to specific {@link ProblemDetail} responses.
-     * <p>
-     * <b>Defense in Depth Strategy:</b>
-     * Most constraints handled here (CHECK constraints and Foreign Keys) are already validated
-     * at the application level (Jakarta Bean Validation and manual service checks).
+     * Spring Data JDBC wraps exceptions thrown during {@link DbAction} execution
+     * (including constraint violations) in DbActionExecutionException
+     */
+    @ExceptionHandler(DbActionExecutionException.class)
+    public ProblemDetail handleDbActionExecution(DbActionExecutionException ex) {
+        return resolveConstraintError(ex)
+                .orElseGet(() -> {
+                    log.error("Database action failed due to unexpected error", ex);
+                    return createProblemDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An internal server error occurred.", ErrorType.INTERNAL_SERVER_ERROR);
+                });
+    }
+    
+    /**
      * If application-level validation is functioning correctly, only the exclusion constraint
-     * ('reservation_overlap_excl') should ever be triggered under normal circumstances
-     * (e.g., due to race conditions).
-     * <p>
+     * ('reservation_overlap_excl') should ever be triggered under normal circumstances.
      * Triggering any other constraint indicates a bypass or failure in the application's
      * validation logic and is logged as an error.
      */
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ProblemDetail handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+    private Optional<ProblemDetail> resolveConstraintError(RuntimeException ex) {
         Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
         
         if (cause instanceof org.postgresql.util.PSQLException psqlException) {
@@ -67,7 +83,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             if (serverError != null && serverError.getConstraint() != null) {
                 String constraint = serverError.getConstraint();
                 
-                return switch (constraint) {
+                return Optional.of(switch (constraint) {
                     case "reservation_overlap_excl" -> {
                         log.warn("Database constraint violation: 'reservation_overlap_excl' - overlapping reservation occurred.");
                         yield createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
@@ -86,15 +102,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                     }
                     default -> {
                         log.error("Unexpected database constraint violation: {}", constraint, ex);
-                        yield createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+                        yield createProblemDetail(HttpStatus.BAD_REQUEST, "Invalid data provided.", ErrorType.RESERVATION_ERROR);
                     }
-                };
+                });
             }
         }
-        
-        log.error("Unexpected data integrity violation", ex);
-        return createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+        return Optional.empty();
     }
+    
     
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ProblemDetail handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {

@@ -173,7 +173,7 @@ class ReservationControllerTests {
                             .content(requestJson))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.title").value("Reservation Error"))
-                    .andExpect(jsonPath("$.detail").value("Something went wrong when creating reservation."));
+                    .andExpect(jsonPath("$.detail").value("Invalid data provided."));
         }
     }
 

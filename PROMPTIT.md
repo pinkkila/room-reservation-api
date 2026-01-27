@@ -4912,3 +4912,585 @@ Summary of Improvements
 - Adherence: Strictly follows the project guideline: "Ensure that PII (Personally Identifiable Information) ... are never written to the logs."
 
 ---
+
+**Prompti 51**
+
+I added this to the GlobalExceptionHandler @file:GlobalExceptionHandler.java :
+
+```java
+@ExceptionHandler(Exception.class)
+public ProblemDetail handleUnexpectedException(Exception ex) {
+    log.error("An unexpected error occurred", ex);
+    return createProblemDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An internal server error occurred.", ErrorType.INTERNAL_SERVER_ERROR);
+}
+```
+
+And now when reservation_overlap_excl contraint is violated @file:schema.sql:
+
+```sql
+    CONSTRAINT reservation_overlap_excl EXCLUDE USING GIST (
+        room_id WITH =,
+        tstzrange(start_time, end_time) WITH &&
+    )
+```
+
+`DbActionExecutionException` is thrown and because I don't have a handler for that in the GlobalExceptionHandler, and therefore it is handled by `handleUnexpectedException` and InternalServerError is returned.
+
+From the stacktrace I can see that the order is:
+
+org.springframework.data.relational.core.conversion.DbActionExecutionException
+org.springframework.dao.DataIntegrityViolationException
+org.postgresql.util.PSQLException
+
+This is probably quite a common issue, so what are the best practices and well-established solutions here? And what are the pros and cons of them?
+
+
+**Junie**
+
+Search in project "ErrorType"
+
+The search for "ErrorType" found one file defining it and multiple references to it in the exception handling code.
+
+This is a common scenario when using Spring Data JDBC. Unlike JPA/Hibernate, which often uses a PersistenceExceptionTranslationPostProcessor to translate all database errors into the DataAccessException hierarchy (like DataIntegrityViolationException), Spring Data JDBC wraps failures that occur during its "Action" execution (the process of persisting an aggregate) in a DbActionExecutionException.
+
+Because DbActionExecutionException does not inherit from DataIntegrityViolationException, your existing handler is skipped, and the exception falls through to your generic Exception.class handler.
+
+Best Practice: Multi-Exception Handler
+
+The recommended and most common solution is to update your @ExceptionHandler to catch both the Spring DAO abstraction and the Spring Data JDBC wrapper. Since your logic already uses NestedExceptionUtils.getMostSpecificCause(ex), it will correctly traverse both types of wrappers to find the underlying PSQLException.
+
+1. Update the Exception Handler
+
+Modify your GlobalExceptionHandler.java to include DbActionExecutionException:
+
+```java
+import org.springframework.data.relational.core.conversion.DbActionExecutionException; // Add this import
+
+// ...
+
+@ExceptionHandler({
+    DataIntegrityViolationException.class, 
+    DbActionExecutionException.class
+})
+public ProblemDetail handleDataIntegrityViolationException(RuntimeException ex) {
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+    
+    if (cause instanceof org.postgresql.util.PSQLException psqlException) {
+        // ... (rest of your existing logic remains the same)
+    }
+    // ...
+}
+```
+
+Analysis of Solutions
+
+| Solution                              | Pros                                                                      | Cons                                                                                                      |
+|---------------------------------------|---------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
+| Multi-Exception Handler (Recommended) | Simple, direct, and reuses your robust PSQLException parsing logic.       | Tight coupling to Spring Data JDBC's specific exception class.                                            |
+| Catch PSQLException directly          | Decoupled from Spring's wrapper hierarchy.                                | Will not work because Spring only matches the top-level thrown exception, not its causes.                 |
+| Manual Exception Translation          | Keeps the handler clean by only handling DataIntegrityViolationException. | Requires manual wrapping/unwrapping in your Service or Repository layer, adding boilerplate.              |
+| Generic Root-Cause Handler            | Catch RuntimeException and inspect causes in a single method.             | Risky; might accidentally handle exceptions that should return different status codes (e.g., 500 vs 409). |
+
+
+Why this approach is "Production-Ready"
+
+1. Defense in Depth: You are already checking the specific constraint name (reservation_overlap_excl). This ensures that you only return a 409 Conflict for known, expected race conditions, while other unexpected database errors still log as errors.
+2. Infrastructure Transparency: By handling DbActionExecutionException, you acknowledge the specific persistence framework you are using (Spring Data JDBC) while still leveraging Spring's NestedExceptionUtils to stay driver-agnostic where possible.
+3. PII Safety: Your current implementation (as seen in the logs) focuses on the constraint name rather than the raw error message, which helps prevent leaking sensitive data that might be present in the database error message.
+
+Summary
+
+Update your @ExceptionHandler to include DbActionExecutionException.class and change the method parameter to RuntimeException ex. This is the standard "well-established" pattern for Spring Data JDBC projects to ensure database constraint violations are caught regardless of the framework's internal wrapping.
+
+---
+
+**Prompti 52**
+
+What if I remove DataIntegrityViolationException from the handler? I mean like this
+
+```java
+@ExceptionHandler(DbActionExecutionException.class)
+public ProblemDetail handleDataIntegrityViolationException(DbActionExecutionException ex) {
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+    
+    if (cause instanceof org.postgresql.util.PSQLException psqlException) {
+        // ... (rest of your existing logic remains the same)
+    }
+    // ...
+}
+```
+
+Does this have downsides and if what they are?
+
+**Junie**
+
+Removing DataIntegrityViolationException from the handler while keeping only DbActionExecutionException has several significant downsides. While it might seem like a cleanup if you only see the latter in your logs, doing so would make your error handling brittle and inconsistent.
+
+Downsides of Removing DataIntegrityViolationException
+
+1. Incomplete Coverage (Partial Protection)
+   
+DbActionExecutionException is specific to the Spring Data JDBC Aggregate State Machine. It is thrown when Spring Data JDBC is trying to persist a complex entity (an aggregate root) and something fails during that high-level process.
+   
+However, DataIntegrityViolationException is the standard Spring exception for database constraint violations. If you perform any database operation that bypasses the "Aggregate" logic, it will throw DataIntegrityViolationException without the DbActionExecutionException wrapper.
+   
+Examples of when DataIntegrityViolationException is thrown directly:
+- Using @Query in your Repository for custom INSERT or UPDATE statements.
+- Using JdbcTemplate directly for manual SQL execution.
+- Any future migration to another Spring Data module (like JPA) that doesn't use the DbAction concept.
+
+3. Inconsistent API Behavior
+   
+If you remove it, your API will return different status codes for the exact same database error depending on how the code was executed:
+- Using repository.save(): Returns 409 Conflict (handled by DbActionExecutionException).
+- Using @Query or JdbcTemplate: Returns 500 Internal Server Error (because it falls back to your generic Exception.class handler).
+   
+This leads to a confusing experience for API consumers and makes debugging harder.
+
+3. Violation of "Defense in Depth"
+   
+The logic inside your handler is designed to parse the specific PostgreSQL constraint name (e.g., reservation_overlap_excl). By removing the general exception, you are essentially saying "I only care about constraint violations that happen during high-level saves," which leaves a gap in your application's safety net.
+
+
+The Recommended Solution (Best Practice)
+
+To handle both cases safely and correctly, you should keep both classes in the @ExceptionHandler and use a common supertype (RuntimeException) in the method signature.
+
+Note on your current code: Your current implementation (line 63) is actually technically incorrect and might fail at runtime because it tries to cast a DbActionExecutionException into a DataIntegrityViolationException parameter.
+
+Correct Implementation:
+
+```java
+@ExceptionHandler({
+    DataIntegrityViolationException.class, 
+    DbActionExecutionException.class
+})
+public ProblemDetail handleDataIntegrityViolationException(RuntimeException ex) { // Use RuntimeException
+    // NestedExceptionUtils will traverse both DbActionExecutionException 
+    // AND DataIntegrityViolationException to find the PSQLException root cause.
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+    
+    if (cause instanceof org.postgresql.util.PSQLException psqlException) {
+        // ... your switch(constraint) logic ...
+    }
+    
+    // Fallback for other data integrity issues
+    log.error("Unexpected data integrity violation", ex);
+    return createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+}
+```
+
+Summary of Benefits
+
+- Consistency: All database constraint violations return the same structured error response.
+- Future-Proof: Whether you use high-level Repository methods or low-level SQL queries, your error handling remains intact.
+- Robustness: Using RuntimeException as the parameter ensures that Spring can safely pass either exception type into the method.
+
+
+---
+
+**Prompti 53**
+
+Take a close look at the GlobalExceptionHandler class @file:GlobalExceptionHandler.java There is this method:
+
+```java
+@ExceptionHandler({DbActionExecutionException.class, DataIntegrityViolationException.class})
+public ProblemDetail handleDataIntegrityViolationException(RuntimeException ex) {
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+    
+    if (cause instanceof org.postgresql.util.PSQLException psqlException) {
+        var serverError = psqlException.getServerErrorMessage();
+        if (serverError != null && serverError.getConstraint() != null) {
+            String constraint = serverError.getConstraint();
+            
+            return switch (constraint) {
+                case "reservation_overlap_excl" -> {
+                    log.warn("Database constraint violation: 'reservation_overlap_excl' - overlapping reservation occurred.");
+                    yield createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+                }
+                case "start_before_end" -> {
+                    log.error("Validation bypass detected: 'start_before_end' constraint violated. Check @ValidReservationRange logic.", ex);
+                    yield createProblemDetail(HttpStatus.BAD_REQUEST, "The start time must be before the end time.", ErrorType.INVALID_RESERVATION_TIME);
+                }
+                case "start_in_future" -> {
+                    log.error("Validation bypass detected: 'start_in_future' constraint violated. Check @Future annotations in ReservationRequest.", ex);
+                    yield createProblemDetail(HttpStatus.BAD_REQUEST, "The reservation must start in the future.", ErrorType.INVALID_RESERVATION_TIME);
+                }
+                case "reservation_room_id_fkey" -> {
+                    log.error("Validation bypass detected: 'reservation_room_id_fkey' constraint violated. Check existence check in ReservationService.", ex);
+                    yield createProblemDetail(HttpStatus.NOT_FOUND, "The requested room does not exist.", ErrorType.ROOM_NOT_FOUND);
+                }
+                default -> {
+                    log.error("Unexpected database constraint violation: {}", constraint, ex);
+                    yield createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+                }
+            };
+        }
+    }
+    
+    log.error("Unexpected data integrity violation", ex);
+    return createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+}
+```
+
+I don't like that it is handling at the same time two quite different exceptions. I think I should separate this and create a helper method from the PSQLException? Do you see any downsides of that?
+
+
+**Junie**
+
+Refactoring the handleDataIntegrityViolationException method to separate the exception types and extract the PostgreSQL-specific logic into a helper method is a great idea for improving code readability and maintainability. It aligns with the "Clean Code" principles and the "Maintainable" and "Professional" requirements in your guidelines.
+
+However, there are a few minor downsides and considerations to keep in mind:
+
+1. Functionally Redundant Entry Points
+   
+If the logic for handling both DbActionExecutionException and DataIntegrityViolationException is identical (i.e., they both just drill down to the root cause to check for a PSQLException), separating them into two @ExceptionHandler methods adds boilerplate code without changing the behavior. In Spring, handling multiple related exceptions in a single method is a common pattern to avoid this redundancy.
+
+2. Risk of Inconsistent Fallbacks
+   
+Currently, if the exception is NOT a PSQLException, you have a single fallback log and ProblemDetail response at the end of the method (lines 88–89). If you separate the handlers, you must ensure that both methods handle the "non-PSQLException" case consistently. Otherwise, a DbActionExecutionException might result in a different error response than a DataIntegrityViolationException for the same underlying (non-constraint) issue.
+
+3. Maintaining Context for Logging
+   
+The current implementation uses the original RuntimeException ex to log the full stack trace for "Validation bypass" errors (e.g., lines 69, 73, 77).
+   
+- The Pitfall: If your helper method only accepts PSQLException, you lose the ability to log the original wrapping exception which contains the Spring-specific context (like the entity being saved).
+   
+- The Fix: Ensure your helper method accepts both the PSQLException and the original RuntimeException so you can still log the full stack trace.
+
+4. Direct Dependency on Postgres Driver
+   
+While your project is committed to PostgreSQL, moving the logic to a helper method that takes PSQLException as a parameter requires an explicit import of org.postgresql.util.PSQLException.
+   
+- The current instanceof check with the fully qualified name (line 58) is a bit "safer" in environments where the driver might not be present (like some narrow unit tests), though this is likely not an issue given your use of Testcontainers.
+   
+Recommended Refactoring Structure
+   
+To avoid the downsides, I suggest keeping the single @ExceptionHandler but delegating the "interpretation" logic to a helper. This keeps the entry point unified while cleaning up the method:
+
+```java
+@ExceptionHandler({DbActionExecutionException.class, DataIntegrityViolationException.class})
+public ProblemDetail handleDatabaseIntegrityViolation(RuntimeException ex) {
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+
+    if (cause instanceof org.postgresql.util.PSQLException psqlException) {
+        return handlePSQLException(psqlException, ex);
+    }
+
+    log.error("Unexpected data integrity violation", ex);
+    return createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+}
+
+private ProblemDetail handlePSQLException(org.postgresql.util.PSQLException psqlException, RuntimeException originalEx) {
+    var serverError = psqlException.getServerErrorMessage();
+    if (serverError == null || serverError.getConstraint() == null) {
+        return createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+    }
+
+    String constraint = serverError.getConstraint();
+    return switch (constraint) {
+        case "reservation_overlap_excl" -> {
+            log.warn("Database constraint violation: 'reservation_overlap_excl' - overlapping reservation occurred.");
+            yield createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+        }
+        // ... other cases ...
+        default -> {
+            log.error("Unexpected database constraint violation: {}", constraint, originalEx);
+            yield createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+        }
+    };
+}
+```
+
+Summary of Downsides to Watch For:
+
+- Code Duplication: Avoid repeating the "unwrap and check" logic in two separate handlers.
+
+- Log Context: Don't forget to pass the original exception to your helper to keep the log.error(..., ex) useful.
+
+- Abstraction Level: Remember that PSQLException is a low-level driver exception. You should still catch the Spring wrappers (DataIntegrityViolationException) because Spring will always wrap the raw JDBC exception. You cannot catch PSQLException directly via @ExceptionHandler if it originates from a Spring Data Repository.
+
+---
+
+**Prompti 54**
+
+No, what I meant was to have one handler for DbActionExecutionException and one for DataIntegrityViolationException.
+
+**Junie**
+
+Understood. If you prefer to have two distinct entry points for DbActionExecutionException and DataIntegrityViolationException, you can certainly do so. This approach can be cleaner if you anticipate needing different logging or custom handling for each wrapper exception in the future.
+
+To follow the "Maintainable" and "Professional" guidelines while avoiding code duplication, you should delegate the shared PostgreSQL-specific logic to a private helper method.
+
+Recommended Implementation
+
+```java
+@ExceptionHandler(DbActionExecutionException.class)
+public ProblemDetail handleDbActionExecutionException(DbActionExecutionException ex) {
+    // You can add specific logging for DbAction failures here if needed
+    return handleDatabaseConstraintViolation(ex);
+}
+
+@ExceptionHandler(DataIntegrityViolationException.class)
+public ProblemDetail handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+    // You can add specific logging for general integrity violations here if needed
+    return handleDatabaseConstraintViolation(ex);
+}
+
+private ProblemDetail handleDatabaseConstraintViolation(RuntimeException ex) {
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+
+    if (cause instanceof org.postgresql.util.PSQLException psqlException) {
+        var serverError = psqlException.getServerErrorMessage();
+        if (serverError != null && serverError.getConstraint() != null) {
+            String constraint = serverError.getConstraint();
+
+            return switch (constraint) {
+                case "reservation_overlap_excl" -> {
+                    log.warn("Database constraint violation: 'reservation_overlap_excl' - overlapping reservation occurred.");
+                    yield createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+                }
+                case "start_before_end" -> {
+                    log.error("Validation bypass detected: 'start_before_end' constraint violated.", ex);
+                    yield createProblemDetail(HttpStatus.BAD_REQUEST, "The start time must be before the end time.", ErrorType.INVALID_RESERVATION_TIME);
+                }
+                case "start_in_future" -> {
+                    log.error("Validation bypass detected: 'start_in_future' constraint violated.", ex);
+                    yield createProblemDetail(HttpStatus.BAD_REQUEST, "The reservation must start in the future.", ErrorType.INVALID_RESERVATION_TIME);
+                }
+                case "reservation_room_id_fkey" -> {
+                    log.error("Validation bypass detected: 'reservation_room_id_fkey' constraint violated.", ex);
+                    yield createProblemDetail(HttpStatus.NOT_FOUND, "The requested room does not exist.", ErrorType.ROOM_NOT_FOUND);
+                }
+                default -> {
+                    log.error("Unexpected database constraint violation: {}", constraint, ex);
+                    yield createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+                }
+            };
+        }
+    }
+
+    log.error("Unexpected data integrity violation", ex);
+    return createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+}
+```
+
+Downsides and Considerations
+
+1. Boilerplate: You now have two methods instead of one. In a small project, this is negligible, but it's something to keep in mind.
+2. Exception Hierarchy: DbActionExecutionException (Spring Data Relational) often wraps a DataAccessException (like DataIntegrityViolationException). Spring's exception resolver will pick the handler for the most specific exception thrown. By having both, you ensure that if Spring Data JDBC throws its specific wrapper, you catch it directly.
+3. Log Context: Ensure you pass the original exception (ex) to the helper method. This is critical because the original exception contains the stack trace and context (like which entity was being saved) that PSQLException lacks.
+4. Maintenance: If you add a third exception type that needs this logic (e.g., TransactionSystemException), you have to remember to add another @ExceptionHandler and call the helper.
+
+Conclusion
+
+Separating them is a valid architectural choice that improves readability by being explicit about which Spring subsystem's exception is being handled. As long as the core logic is centralized in the helper method, you satisfy the requirement for maintainable and professional code.
+
+---
+
+**Prompti 55**
+
+That solution does not solve the problem that I'm thinking here. I am thinking that how is it considered to be good to have two different exceptions coupled or tied up together like I now have? For example, if DbActionExecutionException is thrown, and it is not related at all about constaints violation?
+
+
+**Junie**
+
+Your concern is valid. Coupling DbActionExecutionException and DataIntegrityViolationException in a single handler is a trade-off between convenience (DRY code) and error precision.
+
+In the context of Spring Data JDBC, there are specific reasons why they are often seen together, but also risks if not handled carefully.
+
+1. Why they are coupled (The "Wrapper Problem")
+   
+In Spring Data JDBC, when you call repository.save(), any database error is caught by the framework and wrapped in a DbActionExecutionException. This wrapper contains the "Action" that failed (e.g., "Insert").
+   
+- If a constraint is violated, the chain is: DbActionExecutionException -> DataIntegrityViolationException -> PSQLException. 
+- If you only handled DataIntegrityViolationException, your handler might be skipped because the top-level exception thrown to the controller is the DbAction wrapper.
+
+By coupling them, you ensure that you "catch" the error regardless of whether it's wrapped or thrown directly.
+
+2. The risk of "False Positives" (The "Bad Request" trap)
+
+As you pointed out, if DbActionExecutionException is thrown for a reason not related to constraints (e.g., the database is down, a connection timeout, or a syntax error in a custom query), your current code will still reach the fallback at line 88:
+
+```java
+    log.error("Unexpected data integrity violation", ex);
+    return createProblemDetail(HttpStatus.BAD_REQUEST, ...);
+```
+
+This is technically incorrect. A database connection failure is an INTERNAL_SERVER_ERROR (500), not a BAD_REQUEST (400). Treating all persistence failures as 400s can mislead the client into thinking they sent bad data when the server is actually failing.
+
+3. How to decouple them properly
+
+   
+To maintain professional, enterprise-level error handling, you should differentiate the Constraint Handling (which is 4xx) from the Persistence Failure (which might be 5xx).
+
+Recommended Pattern:
+Extract the constraint-checking logic into a helper and handle the "else" cases differently based on the exception type.
+
+```java
+@ExceptionHandler(DataIntegrityViolationException.class)
+public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+    // We are sure it's an integrity issue (Client Error)
+    return resolveConstraintError(ex)
+            .orElseGet(() -> {
+                log.error("Unexpected data integrity violation", ex);
+                return createProblemDetail(HttpStatus.BAD_REQUEST, "Invalid data provided.", ErrorType.RESERVATION_ERROR);
+            });
+}
+
+@ExceptionHandler(DbActionExecutionException.class)
+public ProblemDetail handleDbActionExecution(DbActionExecutionException ex) {
+    // This could be a constraint OR a system failure
+    return resolveConstraintError(ex)
+            .orElseGet(() -> {
+                // If it's NOT a constraint, it's likely a server-side issue
+                log.error("Database action failed due to system error", ex);
+                return createProblemDetail(HttpStatus.INTERNAL_SERVER_ERROR, "A database error occurred.", ErrorType.INTERNAL_SERVER_ERROR);
+            });
+}
+
+private Optional<ProblemDetail> resolveConstraintError(RuntimeException ex) {
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+    if (cause instanceof org.postgresql.util.PSQLException psqlEx) {
+        // ... switch(psqlEx.getServerErrorMessage().getConstraint()) logic here ...
+        // Return Optional.of(ProblemDetail) if matched, Optional.empty() otherwise
+    }
+    return Optional.empty();
+}
+```
+
+Summary
+
+- Is it good to couple them? Only if the "fallback" logic is smart enough to distinguish between a "Data Error" and a "System Error."
+- What if it's unrelated to constraints? With your current code, it's logged as an error but returned as a 400. Decoupling them (as shown above) ensures that unrelated DbAction failures correctly return a 500 error, which is the "Professional" and "Production-ready" approach.
+
+---
+
+**Prompti 56**
+
+Can you give me both of these handlers and the helper method written completely?
+
+```java
+@ExceptionHandler(DataIntegrityViolationException.class)
+public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+    // We are sure it's an integrity issue (Client Error)
+    return resolveConstraintError(ex)
+            .orElseGet(() -> {
+                log.error("Unexpected data integrity violation", ex);
+                return createProblemDetail(HttpStatus.BAD_REQUEST, "Invalid data provided.", ErrorType.RESERVATION_ERROR);
+            });
+}
+
+@ExceptionHandler(DbActionExecutionException.class)
+public ProblemDetail handleDbActionExecution(DbActionExecutionException ex) {
+    // This could be a constraint OR a system failure
+    return resolveConstraintError(ex)
+            .orElseGet(() -> {
+                // If it's NOT a constraint, it's likely a server-side issue
+                log.error("Database action failed due to system error", ex);
+                return createProblemDetail(HttpStatus.INTERNAL_SERVER_ERROR, "A database error occurred.", ErrorType.INTERNAL_SERVER_ERROR);
+            });
+}
+
+private Optional<ProblemDetail> resolveConstraintError(RuntimeException ex) {
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+    if (cause instanceof org.postgresql.util.PSQLException psqlEx) {
+        // ... switch(psqlEx.getServerErrorMessage().getConstraint()) logic here ...
+        // Return Optional.of(ProblemDetail) if matched, Optional.empty() otherwise
+    }
+    return Optional.empty();
+}
+```
+
+To properly decouple constraint handling from general persistence failures while maintaining a clean, DRY (Don't Repeat Yourself) approach, you can implement the two separate handlers and the private helper method as follows.
+
+This implementation ensures that:
+
+1. DataIntegrityViolationException (always a client-side/data issue) returns a 400 Bad Request if no specific constraint is matched.
+2. DbActionExecutionException (could be a system failure) returns a 500 Internal Server Error if no specific constraint is matched.
+3. The logic for interpreting PostgreSQL-specific constraint violations is centralized.
+
+1. Add the necessary import
+
+Ensure you have the following import at the top of your GlobalExceptionHandler.java:
+
+```java
+import java.util.Optional;
+```
+
+2. Implement the Handlers and Helper Method
+
+Replace your current handleDataIntegrityViolationException method with these:
+
+```java
+@ExceptionHandler(DataIntegrityViolationException.class)
+public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+    // We are sure it's an integrity issue (Client Error)
+    return resolveConstraintError(ex)
+            .orElseGet(() -> {
+                log.error("Unexpected data integrity violation", ex);
+                return createProblemDetail(HttpStatus.BAD_REQUEST, "Invalid data provided.", ErrorType.RESERVATION_ERROR);
+            });
+}
+
+@ExceptionHandler(DbActionExecutionException.class)
+public ProblemDetail handleDbActionExecution(DbActionExecutionException ex) {
+    // This could be a constraint (wrapped) OR a system failure (e.g., DB connection lost)
+    return resolveConstraintError(ex)
+            .orElseGet(() -> {
+                // If it's NOT a constraint, it's likely a server-side issue
+                log.error("Database action failed due to system error", ex);
+                return createProblemDetail(HttpStatus.INTERNAL_SERVER_ERROR, "A database error occurred.", ErrorType.INTERNAL_SERVER_ERROR);
+            });
+}
+
+/**
+ * Extracts PostgreSQL constraint violations from the exception chain.
+ * Returns an Optional containing the ProblemDetail if a known constraint is found.
+ */
+private Optional<ProblemDetail> resolveConstraintError(RuntimeException ex) {
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+
+    if (cause instanceof org.postgresql.util.PSQLException psqlException) {
+        var serverError = psqlException.getServerErrorMessage();
+        if (serverError != null && serverError.getConstraint() != null) {
+            String constraint = serverError.getConstraint();
+
+            return Optional.of(switch (constraint) {
+                case "reservation_overlap_excl" -> {
+                    log.warn("Database constraint violation: 'reservation_overlap_excl' - overlapping reservation occurred.");
+                    yield createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+                }
+                case "start_before_end" -> {
+                    log.error("Validation bypass detected: 'start_before_end' constraint violated. Check @ValidReservationRange logic.", ex);
+                    yield createProblemDetail(HttpStatus.BAD_REQUEST, "The start time must be before the end time.", ErrorType.INVALID_RESERVATION_TIME);
+                }
+                case "start_in_future" -> {
+                    log.error("Validation bypass detected: 'start_in_future' constraint violated. Check @Future annotations in ReservationRequest.", ex);
+                    yield createProblemDetail(HttpStatus.BAD_REQUEST, "The reservation must start in the future.", ErrorType.INVALID_RESERVATION_TIME);
+                }
+                case "reservation_room_id_fkey" -> {
+                    log.error("Validation bypass detected: 'reservation_room_id_fkey' constraint violated. Check existence check in ReservationService.", ex);
+                    yield createProblemDetail(HttpStatus.NOT_FOUND, "The requested room does not exist.", ErrorType.ROOM_NOT_FOUND);
+                }
+                default -> {
+                    log.error("Unexpected database constraint violation: {}", constraint, ex);
+                    yield createProblemDetail(HttpStatus.BAD_REQUEST, "Something went wrong when creating reservation.", ErrorType.RESERVATION_ERROR);
+                }
+            });
+        }
+    }
+    return Optional.empty();
+}
+```
+
+Why this is better:
+- Precision: You no longer return a 400 Bad Request when the database is actually down (which DbActionExecutionException might wrap).
+- Maintainability: If you need to add a new constraint check, you only modify resolveConstraintError.
+- Readability: The entry points clearly state their intent, and the complex logic is tucked away in a helper method.
+
+
+---
+
+
+
