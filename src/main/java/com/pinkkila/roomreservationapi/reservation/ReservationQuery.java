@@ -1,9 +1,8 @@
 package com.pinkkila.roomreservationapi.reservation;
 
-import com.pinkkila.roomreservationapi.validation.SortWhitelist;
+import com.pinkkila.roomreservationapi.validation.Allowlist;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 
 public record ReservationQuery(
@@ -14,10 +13,16 @@ public record ReservationQuery(
         @Max(100)
         Integer size,
 
-        @SortWhitelist({"id", "startTime", "endTime", "roomId"})
+        @Allowlist(
+                value = {"id", "startTime", "endTime", "roomId"},
+                message = "Invalid sort field. Allowed fields are: {value}"
+        )
         String sortBy,
-
-        @Pattern(regexp = "^(asc|desc)$", message = "Sort order must be 'asc' or 'desc'")
+        
+        @Allowlist(
+                value = {"asc", "desc"},
+                message = "Sort order must be 'asc' or 'desc'"
+        )
         String sortOrder,
 
         @Positive

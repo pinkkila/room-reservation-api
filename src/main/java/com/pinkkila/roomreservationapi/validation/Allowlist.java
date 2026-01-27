@@ -10,10 +10,10 @@ import java.lang.annotation.Target;
 
 @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-@Constraint(validatedBy = SortWhitelistValidator.class)
-public @interface SortWhitelist {
+@Constraint(validatedBy = AllowlistValidator.class)
+public @interface Allowlist {
     String[] value();
-    String message() default "Invalid sort field. Allowed fields are: {value}";
+    String message() default "Value is not allowed. Allowed values are: {value}";
     Class<?>[] groups() default {};
     Class<? extends Payload>[] payload() default {};
 }

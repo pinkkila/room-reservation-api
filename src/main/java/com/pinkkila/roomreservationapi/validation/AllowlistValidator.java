@@ -5,12 +5,12 @@ import jakarta.validation.ConstraintValidatorContext;
 
 import java.util.Set;
 
-public class SortWhitelistValidator implements ConstraintValidator<SortWhitelist, String> {
+public class AllowlistValidator implements ConstraintValidator<Allowlist, String> {
 
     private Set<String> allowedFields;
 
     @Override
-    public void initialize(SortWhitelist constraintAnnotation) {
+    public void initialize(Allowlist constraintAnnotation) {
         this.allowedFields = Set.of(constraintAnnotation.value());
     }
 
