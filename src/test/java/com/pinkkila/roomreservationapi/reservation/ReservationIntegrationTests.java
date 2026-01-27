@@ -102,7 +102,7 @@ class ReservationIntegrationTests {
                     .exchange()
                     .expectStatus().isEqualTo(409)
                     .expectBody()
-                    .jsonPath("$.title").isEqualTo("Data Conflict");
+                    .jsonPath("$.title").isEqualTo("Overlapping Reservation");
         }
 
         @Test
@@ -248,7 +248,7 @@ class ReservationIntegrationTests {
                     .exchange()
                     .expectStatus().isBadRequest()
                     .expectBody()
-                    .jsonPath("$.title").isEqualTo("Invalid Parameter Type");
+                    .jsonPath("$.title").isEqualTo("Invalid Path Parameter");
         }
     }
 

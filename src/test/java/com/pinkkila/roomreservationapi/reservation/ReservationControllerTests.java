@@ -91,8 +91,7 @@ class ReservationControllerTests {
                             .content(malformedJson))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.title").value("Invalid Request Body"))
-                    .andExpect(jsonPath("$.detail").value("Malformed or invalid JSON payload"))
-                    .andExpect(jsonPath("$.errors[0]").value("Failed to parse request body"));
+                    .andExpect(jsonPath("$.detail").value("Malformed or invalid JSON payload"));
         }
 
         @Test
@@ -110,8 +109,8 @@ class ReservationControllerTests {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(invalidJson))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Request Content"))
-                    .andExpect(jsonPath("$.detail").value("Validation failed for one or more fields."))
+                    .andExpect(jsonPath("$.title").value("Invalid Request Body"))
+                    .andExpect(jsonPath("$.detail").value("The data provided in the request body is invalid."))
                     .andExpect(jsonPath("$.errors.roomId").exists());
         }
 
@@ -130,7 +129,7 @@ class ReservationControllerTests {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(invalidJson))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Request Content"));
+                    .andExpect(jsonPath("$.title").value("Invalid Request Body"));
         }
 
         @Test
@@ -156,8 +155,8 @@ class ReservationControllerTests {
         }
 
         @Test
-        @DisplayName("Data conflict during creation should return 409 Conflict")
-        void createReservation_DataConflict_Returns409() throws Exception {
+        @DisplayName("Data conflict during creation should return 400 Bad Request (generic error)")
+        void createReservation_DataConflict_Returns400() throws Exception {
             when(reservationService.createReservation(any(ReservationRequest.class)))
                     .thenThrow(new DataIntegrityViolationException("Conflict"));
 
@@ -172,9 +171,9 @@ class ReservationControllerTests {
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestJson))
-                    .andExpect(status().isConflict())
-                    .andExpect(jsonPath("$.title").value("Data Conflict"))
-                    .andExpect(jsonPath("$.detail").value("The requested operation conflicts with existing data or business rules."));
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.title").value("Reservation Error"))
+                    .andExpect(jsonPath("$.detail").value("Something went wrong when creating reservation."));
         }
     }
 
@@ -252,8 +251,7 @@ class ReservationControllerTests {
             mockMvc.perform(get("/api/reservations")
                             .param("roomId", "x"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Query Parameters"))
-                    .andExpect(jsonPath("$.detail").value("One or more query parameter provided in the URL is invalid."))
+                    .andExpect(jsonPath("$.title").value("Invalid Request Parameters"))
                     .andExpect(jsonPath("$.errors.roomId").exists());
         }
 
@@ -266,7 +264,7 @@ class ReservationControllerTests {
                             .param("sortOrder", "invalid")
                             .param("roomId", "-1"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Query Parameters"))
+                    .andExpect(jsonPath("$.title").value("Invalid Request Parameters"))
                     .andExpect(jsonPath("$.errors.page").exists())
                     .andExpect(jsonPath("$.errors.size").exists())
                     .andExpect(jsonPath("$.errors.sortOrder").exists())
@@ -276,12 +274,11 @@ class ReservationControllerTests {
         @Test
         @DisplayName("Should return 400 when sortBy field is invalid")
         void shouldReturn400WhenSortByInvalid() throws Exception {
-            when(reservationService.getReservations(any(ReservationQuery.class)))
-                    .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid sortBy field: invalidField"));
-
             mockMvc.perform(get("/api/reservations")
                             .param("sortBy", "invalidField"))
-                    .andExpect(status().isBadRequest());
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.title").value("Invalid Request Parameters"))
+                    .andExpect(jsonPath("$.errors.sortBy").exists());
         }
 
         @Test
@@ -328,8 +325,8 @@ class ReservationControllerTests {
         void shouldReturn400WhenIdNotNumeric() throws Exception {
             mockMvc.perform(delete("/api/reservations/abc"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Parameter Type"))
-                    .andExpect(jsonPath("$.detail").value("The parameter 'reservationId' should be of type 'Long'"));
+                    .andExpect(jsonPath("$.title").value("Invalid Path Parameter"))
+                    .andExpect(jsonPath("$.detail").value("One or more path parameters are invalid."));
         }
 
         @Test
@@ -337,8 +334,8 @@ class ReservationControllerTests {
         void shouldReturn400WhenIdNotPositive() throws Exception {
             mockMvc.perform(delete("/api/reservations/0"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Constraint Violation"))
-                    .andExpect(jsonPath("$.detail").value(containsString("deleteReservation.reservationId: must be greater than 0")));
+                    .andExpect(jsonPath("$.title").value("Invalid Path Parameter"))
+                    .andExpect(jsonPath("$.detail").value("One or more path parameters are invalid."));
         }
     }
 }

@@ -178,41 +178,6 @@ class ReservationServiceTests {
         }
 
         @Test
-        @DisplayName("Should throw 400 when sortBy field is not in whitelist")
-        void shouldThrow400WhenSortByInvalid() {
-            // Given
-            ReservationQuery query = new ReservationQuery(0, 20, "invalidField", "asc", null);
-
-            // When & Then
-            assertThatThrownBy(() -> reservationService.getReservations(query))
-                    .isInstanceOf(ResponseStatusException.class)
-                    .hasMessageContaining("Invalid sortBy field: invalidField");
-        }
-
-        @Test
-        @DisplayName("Should throw 400 when sortBy field is wrong case")
-        void shouldThrow400WhenSortByWrongCase() {
-            // Given
-            ReservationQuery query = new ReservationQuery(0, 20, "STARTTIME", "asc", null);
-
-            // When & Then
-            assertThatThrownBy(() -> reservationService.getReservations(query))
-                    .isInstanceOf(ResponseStatusException.class)
-                    .hasMessageContaining("Invalid sortBy field: STARTTIME");
-        }
-
-        @Test
-        @DisplayName("Should throw IllegalArgumentException when sortOrder is invalid")
-        void shouldThrowIllegalArgumentExceptionWhenSortOrderInvalid() {
-            // Given
-            ReservationQuery query = new ReservationQuery(0, 20, "startTime", "invalidOrder", null);
-
-            // When & Then
-            assertThatThrownBy(() -> reservationService.getReservations(query))
-                    .isInstanceOf(IllegalArgumentException.class);
-        }
-
-        @Test
         @DisplayName("Should throw RoomNotFoundException when filtering by non-existent roomId")
         void shouldThrow404WhenRoomNotFound() {
             // Given

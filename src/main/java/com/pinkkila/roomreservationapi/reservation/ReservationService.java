@@ -9,12 +9,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
 
 @Slf4j
 @Service
@@ -27,12 +24,6 @@ public class ReservationService {
     @Transactional(readOnly = true)
     public Page<ReservationResponse> getReservations(ReservationQuery query) {
         log.info("Fetching reservations with query: {}", query);
-
-        List<String> allowedSortFields = List.of("id", "startTime", "endTime", "roomId");
-        if (!allowedSortFields.contains(query.sortBy())) {
-            log.warn("Invalid sortBy field: {}", query.sortBy());
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid sortBy field: " + query.sortBy());
-        }
 
         if (query.roomId() != null && !roomRepository.existsById(query.roomId())) {
             throw new RoomNotFoundException(query.roomId());

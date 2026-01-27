@@ -1,5 +1,6 @@
 package com.pinkkila.roomreservationapi.reservation;
 
+import com.pinkkila.roomreservationapi.validation.SortWhitelist;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
@@ -13,6 +14,7 @@ public record ReservationQuery(
         @Max(100)
         Integer size,
 
+        @SortWhitelist({"id", "startTime", "endTime", "roomId"})
         String sortBy,
 
         @Pattern(regexp = "^(asc|desc)$", message = "Sort order must be 'asc' or 'desc'")
