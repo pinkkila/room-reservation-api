@@ -73,85 +73,6 @@ class ReservationControllerTests {
                     .andExpect(jsonPath("$.startTime").value("2026-02-21T15:00:00Z"))
                     .andExpect(jsonPath("$.endTime").value("2026-02-21T16:00:00Z"));
         }
-
-        @Test
-        @DisplayName("Malformed JSON should return 400 with custom errors")
-        void createReservation_MalformedJson_Returns400WithErrors() throws Exception {
-            String malformedJson = """
-                    {
-                      "roomId": 1,
-                      "startTime": "xxx",
-                      "endTime": "2026-02-21T16:00:00Z"
-                    }
-                    """;
-
-            mockMvc.perform(post("/api/reservations")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(malformedJson))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Request Body"))
-                    .andExpect(jsonPath("$.detail").value("Malformed or invalid JSON payload"));
-        }
-
-        @Test
-        @DisplayName("Invalid fields should return 400 with field errors")
-        void createReservation_InvalidFields_Returns400WithFieldErrors() throws Exception {
-            String invalidJson = """
-                    {
-                      "roomId": null,
-                      "startTime": "2026-02-21T15:00:00Z",
-                      "endTime": "2026-02-21T14:00:00Z"
-                    }
-                    """;
-
-            mockMvc.perform(post("/api/reservations")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(invalidJson))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Request Body"))
-                    .andExpect(jsonPath("$.detail").value("The data provided in the request body is invalid."))
-                    .andExpect(jsonPath("$.errors.roomId").exists());
-        }
-
-        @Test
-        @DisplayName("Reservation with end time before start time should return 400")
-        void createReservation_EndTimeBeforeStartTime_Returns400() throws Exception {
-            String invalidJson = """
-                    {
-                      "roomId": 1,
-                      "startTime": "2026-02-21T16:00:00Z",
-                      "endTime": "2026-02-21T15:00:00Z"
-                    }
-                    """;
-
-            mockMvc.perform(post("/api/reservations")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(invalidJson))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Request Body"));
-        }
-
-        @Test
-        @DisplayName("Creation for non-existent room should return 404 Not Found")
-        void createReservation_RoomNotFound_Returns404() throws Exception {
-            when(reservationService.createReservation(any(ReservationRequest.class)))
-                    .thenThrow(new RoomNotFoundException(999));
-
-            String requestJson = """
-                    {
-                      "roomId": 999,
-                      "startTime": "2026-02-21T15:00:00Z",
-                      "endTime": "2026-02-21T16:00:00Z"
-                    }
-                    """;
-
-            mockMvc.perform(post("/api/reservations")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(requestJson))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.title").value("Room Not Found"))
-                    .andExpect(jsonPath("$.detail").value("Room with ID 999 not found"));
-        }
         
         @Test
         @DisplayName("Overlapping reservation during creation should return 409 Conflict")
@@ -178,9 +99,106 @@ class ReservationControllerTests {
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestJson))
-                    .andExpect(status().isConflict()) // Overlap maps to 409 Conflict
+                    .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.title").value("Overlapping Reservation"))
                     .andExpect(jsonPath("$.detail").value("The room is already reserved for the requested time period."));
+        }
+        
+        @Test
+        @DisplayName("Reservation with end time before start time should return 400")
+        void createReservation_EndTimeBeforeStartTime_Returns400() throws Exception {
+            String invalidJson = """
+                    {
+                      "roomId": 1,
+                      "startTime": "2026-02-21T16:00:00Z",
+                      "endTime": "2026-02-21T15:00:00Z"
+                    }
+                    """;
+            
+            mockMvc.perform(post("/api/reservations")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(invalidJson))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.title").value("Invalid Request Body"));
+        }
+        
+        @Test
+        @DisplayName("Reservation with start and end time in past should return 400")
+        void createReservation_StartTimeEndTimeInPast_Returns400() throws Exception {
+            String invalidJson = """
+                    {
+                      "roomId": 1,
+                      "startTime": "2025-02-21T16:00:00Z",
+                      "endTime": "2025-02-21T17:00:00Z"
+                    }
+                    """;
+            
+            mockMvc.perform(post("/api/reservations")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(invalidJson))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.title").value("Invalid Request Body"));
+        }
+        
+        @Test
+        @DisplayName("Creation for non-existent room should return 404 Not Found")
+        void createReservation_RoomNotFound_Returns404() throws Exception {
+            when(reservationService.createReservation(any(ReservationRequest.class)))
+                    .thenThrow(new RoomNotFoundException(999));
+            
+            String requestJson = """
+                    {
+                      "roomId": 999,
+                      "startTime": "2026-02-21T15:00:00Z",
+                      "endTime": "2026-02-21T16:00:00Z"
+                    }
+                    """;
+            
+            mockMvc.perform(post("/api/reservations")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requestJson))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.title").value("Room Not Found"))
+                    .andExpect(jsonPath("$.detail").value("Room with ID 999 not found"));
+        }
+        
+        @Test
+        @DisplayName("Malformed JSON should return 400 with custom errors")
+        void createReservation_MalformedJson_Returns400WithErrors() throws Exception {
+            String malformedJson = """
+                    {
+                      "roomId": 1,
+                      "startTime": "xxx",
+                      "endTime": "2026-02-21T16:00:00Z"
+                    }
+                    """;
+
+            mockMvc.perform(post("/api/reservations")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(malformedJson))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.title").value("Invalid Request Body"))
+                    .andExpect(jsonPath("$.detail").value("Malformed or invalid JSON payload"));
+        }
+        
+        @Test
+        @DisplayName("Invalid fields should return 400 with field errors")
+        void createReservation_InvalidFields_Returns400WithFieldErrors() throws Exception {
+            String invalidJson = """
+                    {
+                      "roomId": null,
+                      "startTime": "2026-02-21T15:00:00Z",
+                      "endTime": "2026-02-21T14:00:00Z"
+                    }
+                    """;
+
+            mockMvc.perform(post("/api/reservations")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(invalidJson))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.title").value("Invalid Request Body"))
+                    .andExpect(jsonPath("$.detail").value("The data provided in the request body is invalid."))
+                    .andExpect(jsonPath("$.errors.roomId").exists());
         }
 
         @Test
