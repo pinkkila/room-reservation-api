@@ -13,17 +13,16 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpStatus;
+import org.springframework.data.relational.core.conversion.DbAction;
+import org.springframework.data.relational.core.conversion.DbActionExecutionException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -152,6 +151,36 @@ class ReservationControllerTests {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.title").value("Room Not Found"))
                     .andExpect(jsonPath("$.detail").value("Room with ID 999 not found"));
+        }
+        
+        @Test
+        @DisplayName("Overlapping reservation during creation should return 409 Conflict")
+        void createReservation_Overlapping_Reservation_Returns409() throws Exception {
+            var psqlException = mock(org.postgresql.util.PSQLException.class);
+            var serverError = mock(org.postgresql.util.ServerErrorMessage.class);
+            
+            when(psqlException.getServerErrorMessage()).thenReturn(serverError);
+            when(serverError.getConstraint()).thenReturn("reservation_overlap_excl");
+            
+            var dbActionExecutionException = new DbActionExecutionException(mock(DbAction.class), psqlException);
+            
+            when(reservationService.createReservation(any(ReservationRequest.class)))
+                    .thenThrow(dbActionExecutionException);
+            
+            String requestJson = """
+                    {
+                      "roomId": 1,
+                      "startTime": "2026-02-21T15:00:00Z",
+                      "endTime": "2026-02-21T16:00:00Z"
+                    }
+                    """;
+            
+            mockMvc.perform(post("/api/reservations")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requestJson))
+                    .andExpect(status().isConflict()) // Overlap maps to 409 Conflict
+                    .andExpect(jsonPath("$.title").value("Overlapping Reservation"))
+                    .andExpect(jsonPath("$.detail").value("The room is already reserved for the requested time period."));
         }
 
         @Test

@@ -5653,6 +5653,129 @@ Benefits of this Implementation
 - Cleanliness: Uses modern Java features (switch expressions, Optional, Stream) to create a clear and expressive flow. It separates the "what" (identifying the constraint) from the "how" (handling the error).
 - Error Resilience: The orElseGet block handles unexpected or newly added database constraints gracefully, logging them as errors for investigation while still providing a consistent error response to the client.
 
+---
+
+**Prompti 58**
+
+I am writing controller integration test that tests how controller handles overlapping reservations. Take a look at the schema.sql @file:schema.sql  and from there you can see that overlapping reservations violate reservation_overlap_excl constraint. Because this project uses Spring Data JDBC the wraps that constraint violation to the DbActionExecutionException. There is ExceptionHandler for that in GlobalExceptionHandler class @file:GlobalExceptionHandler.java  . My test is currently missing parameters from  DbActionExecutionException when it is instantiated. How can I conviniently set those parameters here?
+
+```java
+@Test
+@DisplayName("Overlapping reservation during creation should return 400 Bad Request")
+void createReservation_Overlapping_Reservation_Returns400() throws Exception {
+    when(reservationService.createReservation(any(ReservationRequest.class)))
+            .thenThrow(new DbActionExecutionException());
+    
+    String requestJson = """
+            {
+              "roomId": 1,
+              "startTime": "2026-02-21T15:00:00Z",
+              "endTime": "2026-02-21T16:00:00Z"
+            }
+            """;
+    
+    mockMvc.perform(post("/api/reservations")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestJson))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.title").value("Reservation Error"))
+            .andExpect(jsonPath("$.detail").value("Invalid data provided."));
+}
+```
+
+@file:ReservationController.java  @file:ReservationControllerTests.java
+
+
+**Junie (ask mode)**
+
+Context7/resolve-library-id
+
+Context7/query-docs
+
+Search in project "PSQLException"
+
+The search for "PSQLException" in the project found 44 occurrences across multiple files, including key exception handling code.
+
+Context7/query-docs
+
+Context7/query-docs
+
+Search in project "DbActionExecutionException"
+
+The search found 47 occurrences of "DbActionExecutionException" across multiple project files, including source code, tests, and documentation.
+
+To test overlapping reservations in a mock environment, you need to simulate the specific exception chain that GlobalExceptionHandler expects. This involves mocking PSQLException and its ServerErrorMessage to return the target constraint name (reservation_overlap_excl).
+
+Steps to Fix the Test
+
+1. Mock the PostgreSQL Exception Chain: Mock both PSQLException and ServerErrorMessage so that psqlException.getServerErrorMessage().getConstraint() returns the correct value.
+
+2. Instantiate DbActionExecutionException: Use the constructor that takes a DbAction (can be mocked) and the PSQLException as the root cause.
+
+3. Update Test Expectations: Since your GlobalExceptionHandler maps the overlap constraint to HttpStatus.CONFLICT (409) with the title "Overlapping Reservation", you should update your assertions accordingly.
+
+Implementation Example
+
+Update your test method in ReservationControllerTests.java as follows:
+
+```java
+@Test
+@DisplayName("Overlapping reservation during creation should return 409 Conflict")
+void createReservation_Overlapping_Reservation_Returns409() throws Exception {
+    // 1. Mock the PSQLException and ServerErrorMessage
+    var psqlException = mock(org.postgresql.util.PSQLException.class);
+    var serverError = mock(org.postgresql.util.ServerErrorMessage.class);
+    
+    // 2. Setup the mock behavior to return the overlap constraint name
+    when(psqlException.getServerErrorMessage()).thenReturn(serverError);
+    when(serverError.getConstraint()).thenReturn("reservation_overlap_excl");
+
+    // 3. Wrap it in DbActionExecutionException (requires a DbAction and a cause)
+    var ex = new org.springframework.data.relational.core.conversion.DbActionExecutionException(
+            mock(org.springframework.data.relational.core.conversion.DbAction.class), 
+            psqlException
+    );
+
+    when(reservationService.createReservation(any(ReservationRequest.class)))
+            .thenThrow(ex);
+    
+    String requestJson = """
+            {
+              "roomId": 1,
+              "startTime": "2026-02-21T15:00:00Z",
+              "endTime": "2026-02-21T16:00:00Z"
+            }
+            """;
+    
+    // 4. Update assertions to match the logic in GlobalExceptionHandler
+    mockMvc.perform(post("/api/reservations")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestJson))
+            .andExpect(status().isConflict()) // Overlap maps to 409 Conflict
+            .andExpect(jsonPath("$.title").value("Overlapping Reservation"))
+            .andExpect(jsonPath("$.detail").value("The room is already reserved for the requested time period."));
+}
+```
+
+Why this works
+
+- NestedExceptionUtils.getMostSpecificCause(ex): Your handler uses this utility to traverse the exception chain. By providing the mocked PSQLException as the cause to DbActionExecutionException, the handler successfully finds and casts it.
+- Constraint Resolution: Once the handler has the PSQLException, it calls getServerErrorMessage().getConstraint(). Your mock provides the string "reservation_overlap_excl", which DatabaseConstraint.fromName() correctly identifies as the overlap case.
+- Correct Status Code: Your handler (lines 89-92 in GlobalExceptionHandler.java) explicitly returns HttpStatus.CONFLICT for this constraint, so the test should verify 409 rather than 400.
+
+Required Imports
+
+Ensure these are available in your test class
+
+```java
+import org.postgresql.util.PSQLException;
+import org.postgresql.util.ServerErrorMessage;
+import org.springframework.data.relational.core.conversion.DbAction;
+```
+
+Note: If PSQLException is not visible in your test code, ensure that your PostgreSQL dependency in build.gradle is set to implementation rather than runtimeOnly.
+
+---
 
 
 
