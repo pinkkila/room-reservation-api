@@ -16,11 +16,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 
+import static com.pinkkila.roomreservationapi.testdata.ReservationTestData.anOneHourReservation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -52,7 +53,7 @@ class ReservationServiceTests {
             int roomId = 1;
             OffsetDateTime start = OffsetDateTime.now().plusDays(1);
             OffsetDateTime end = start.plusHours(1);
-            ReservationRequest request = new ReservationRequest(roomId, start, end);
+            ReservationRequest request = anOneHourReservation().withRoom(roomId).withStartTime(start).withEndTime(end).asRequest();
 
             when(roomRepository.existsById(roomId)).thenReturn(true);
             when(reservationRepository.save(any(Reservation.class))).thenAnswer(invocation -> {
@@ -70,11 +71,12 @@ class ReservationServiceTests {
 
             // Then
             verify(reservationRepository).save(reservationCaptor.capture());
-            Reservation savedReservation = reservationCaptor.getValue();
-
-            assertThat(savedReservation.getRoomId()).isEqualTo(roomId);
-            assertThat(savedReservation.getStartTime()).isEqualTo(start);
-            assertThat(savedReservation.getEndTime()).isEqualTo(end);
+            Reservation capturedReservation = reservationCaptor.getValue();
+            
+            assertThat(capturedReservation.getId()).isNull();
+            assertThat(capturedReservation.getRoomId()).isEqualTo(roomId);
+            assertThat(capturedReservation.getStartTime()).isEqualTo(start);
+            assertThat(capturedReservation.getEndTime()).isEqualTo(end);
 
             assertThat(response.id()).isEqualTo(100L);
             assertThat(response.roomId()).isEqualTo(roomId);
@@ -88,11 +90,7 @@ class ReservationServiceTests {
         @DisplayName("Should throw RoomNotFoundException when room does not exist")
         void shouldThrowRoomNotFoundException() {
             // Given
-            ReservationRequest request = new ReservationRequest(
-                    99,
-                    OffsetDateTime.now().plusDays(1),
-                    OffsetDateTime.now().plusDays(1).plusHours(1)
-            );
+            ReservationRequest request = anOneHourReservation().withRoom(99).asRequest();
 
             when(roomRepository.existsById(99)).thenReturn(false);
 
@@ -130,16 +128,18 @@ class ReservationServiceTests {
 
             // Then
             assertThat(result.getContent()).hasSize(1);
-            ReservationResponse response = result.getContent().get(0);
+            ReservationResponse response = result.getContent().getFirst();
             assertThat(response.id()).isEqualTo(reservation.getId());
             assertThat(response.roomId()).isEqualTo(reservation.getRoomId());
+            assertThat(response.startTime()).isEqualTo(reservation.getStartTime());
+            assertThat(response.endTime()).isEqualTo(reservation.getEndTime());
 
             ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
             verify(reservationRepository).findAll(pageableCaptor.capture());
             Pageable pageable = pageableCaptor.getValue();
             assertThat(pageable.getPageNumber()).isEqualTo(0);
             assertThat(pageable.getPageSize()).isEqualTo(20);
-            assertThat(pageable.getSort().getOrderFor("startTime").getDirection()).isEqualTo(org.springframework.data.domain.Sort.Direction.ASC);
+            assertThat(Objects.requireNonNull(pageable.getSort().getOrderFor("startTime")).getDirection()).isEqualTo(org.springframework.data.domain.Sort.Direction.ASC);
 
             verifyNoInteractions(roomRepository);
         }
@@ -166,15 +166,18 @@ class ReservationServiceTests {
 
             // Then
             assertThat(result.getContent()).hasSize(1);
-            ReservationResponse response = result.getContent().get(0);
+            ReservationResponse response = result.getContent().getFirst();
+            assertThat(response.id()).isEqualTo(reservation.getId());
             assertThat(response.roomId()).isEqualTo(roomId);
+            assertThat(response.startTime()).isEqualTo(reservation.getStartTime());
+            assertThat(response.endTime()).isEqualTo(reservation.getEndTime());
 
             ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
             verify(reservationRepository).findByRoomId(eq(roomId), pageableCaptor.capture());
             Pageable pageable = pageableCaptor.getValue();
             assertThat(pageable.getPageNumber()).isEqualTo(1);
             assertThat(pageable.getPageSize()).isEqualTo(10);
-            assertThat(pageable.getSort().getOrderFor("endTime").getDirection()).isEqualTo(org.springframework.data.domain.Sort.Direction.DESC);
+            assertThat(Objects.requireNonNull(pageable.getSort().getOrderFor("endTime")).getDirection()).isEqualTo(org.springframework.data.domain.Sort.Direction.DESC);
         }
 
         @Test
