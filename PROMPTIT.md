@@ -5492,5 +5492,168 @@ Why this is better:
 
 ---
 
+**Prompti 57**
+
+Take a close look at the GlobalExceptionHandler class @file:GlobalExceptionHandler.java  and schema.sql @file:schema.sql . There is this helper method in GlobalExceptionHandler:
+
+```java
+/**
+ * If application-level validation is functioning correctly, only the exclusion constraint
+ * ('reservation_overlap_excl') should ever be triggered under normal circumstances.
+ * Triggering any other constraint indicates a bypass or failure in the application's
+ * validation logic and is logged as an error.
+ */
+private Optional<ProblemDetail> resolveConstraintError(RuntimeException ex) {
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+    
+    if (cause instanceof org.postgresql.util.PSQLException psqlException) {
+        var serverError = psqlException.getServerErrorMessage();
+        if (serverError != null && serverError.getConstraint() != null) {
+            String constraint = serverError.getConstraint();
+            
+            return Optional.of(switch (constraint) {
+                case "reservation_overlap_excl" -> {
+                    log.warn("Database constraint violation: 'reservation_overlap_excl' - overlapping reservation occurred.");
+                    yield createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+                }
+                case "start_before_end" -> {
+                    log.error("Validation bypass detected: 'start_before_end' constraint violated. Check @ValidReservationRange logic.", ex);
+                    yield createProblemDetail(HttpStatus.BAD_REQUEST, "The start time must be before the end time.", ErrorType.INVALID_RESERVATION_TIME);
+                }
+                case "start_in_future" -> {
+                    log.error("Validation bypass detected: 'start_in_future' constraint violated. Check @Future annotations in ReservationRequest.", ex);
+                    yield createProblemDetail(HttpStatus.BAD_REQUEST, "The reservation must start in the future.", ErrorType.INVALID_RESERVATION_TIME);
+                }
+                case "reservation_room_id_fkey" -> {
+                    log.error("Validation bypass detected: 'reservation_room_id_fkey' constraint violated. Check existence check in ReservationService.", ex);
+                    yield createProblemDetail(HttpStatus.NOT_FOUND, "The requested room does not exist.", ErrorType.ROOM_NOT_FOUND);
+                }
+                default -> {
+                    log.error("Unexpected database constraint violation: {}", constraint, ex);
+                    yield createProblemDetail(HttpStatus.BAD_REQUEST, "Invalid data provided.", ErrorType.RESERVATION_ERROR);
+                }
+            });
+        }
+    }
+    return Optional.empty();
+}
+```
+
+I would like to replace string literals representing database constraint names with enum constants. What is the most effective, robust, and cleanest way to implement that in this method?
+
+
+**Junie (ask mode)**
+
+Search in project "reservation_overlap_excl"
+
+The search found multiple occurrences of the term "reservation_overlap_excl" across various project files, including documentation, source code, and database schema.
+
+To replace the string literals with enum constants in a way that is effective, robust, and clean, you should implement a dedicated DatabaseConstraint enum and refactor the resolveConstraintError method to use it.
+
+This approach centralizes the constraint names, provides type safety, and leverages modern Java features for better readability.
+
+1. Define the DatabaseConstraint Enum
+   
+Create a new enum in the com.pinkkila.roomreservationapi.exception package. This enum maps the PostgreSQL constraint names (from schema.sql) to application constants and includes a static lookup map for efficient resolution.
+
+```java
+package com.pinkkila.roomreservationapi.exception;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+/**
+ * Represents the database constraints defined in the schema.
+ * Maps PostgreSQL constraint names to application-level constants.
+ */
+@Getter
+@RequiredArgsConstructor
+public enum DatabaseConstraint {
+    RESERVATION_OVERLAP("reservation_overlap_excl"),
+    START_BEFORE_END("start_before_end"),
+    START_IN_FUTURE("start_in_future"),
+    ROOM_ID_FOREIGN_KEY("reservation_room_id_fkey");
+
+    private final String constraintName;
+
+    // Pre-computed lookup map for O(1) resolution from string name
+    private static final Map<String, DatabaseConstraint> LOOKUP = Stream.of(values())
+            .collect(Collectors.toUnmodifiableMap(DatabaseConstraint::getConstraintName, Function.identity()));
+
+    /**
+     * Resolves a constraint name string to its corresponding enum constant.
+     */
+    public static Optional<DatabaseConstraint> fromName(String name) {
+        return Optional.ofNullable(LOOKUP.get(name));
+    }
+}
+```
+
+2. Refactor GlobalExceptionHandler
+   
+Update the resolveConstraintError method in GlobalExceptionHandler.java to use the new enum. By using a Java switch expression on the enum, the code becomes much more structured and maintainable.
+
+```java
+/**
+ * If application-level validation is functioning correctly, only the exclusion constraint
+ * ('reservation_overlap_excl') should ever be triggered under normal circumstances.
+ * Triggering any other constraint indicates a bypass or failure in the application's
+ * validation logic and is logged as an error.
+ */
+private Optional<ProblemDetail> resolveConstraintError(RuntimeException ex) {
+    Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+    
+    if (cause instanceof org.postgresql.util.PSQLException psqlException) {
+        var serverError = psqlException.getServerErrorMessage();
+        if (serverError != null && serverError.getConstraint() != null) {
+            String constraintName = serverError.getConstraint();
+            
+            ProblemDetail problemDetail = DatabaseConstraint.fromName(constraintName)
+                    .map(constraint -> switch (constraint) {
+                        case RESERVATION_OVERLAP -> {
+                            log.warn("Database constraint violation: '{}' - overlapping reservation occurred.", constraint.getConstraintName());
+                            yield createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+                        }
+                        case START_BEFORE_END -> {
+                            log.error("Validation bypass detected: '{}' constraint violated. Check @ValidReservationRange logic.", constraint.getConstraintName(), ex);
+                            yield createProblemDetail(HttpStatus.BAD_REQUEST, "The start time must be before the end time.", ErrorType.INVALID_RESERVATION_TIME);
+                        }
+                        case START_IN_FUTURE -> {
+                            log.error("Validation bypass detected: '{}' constraint violated. Check @Future annotations in ReservationRequest.", constraint.getConstraintName(), ex);
+                            yield createProblemDetail(HttpStatus.BAD_REQUEST, "The reservation must start in the future.", ErrorType.INVALID_RESERVATION_TIME);
+                        }
+                        case ROOM_ID_FOREIGN_KEY -> {
+                            log.error("Validation bypass detected: '{}' constraint violated. Check existence check in ReservationService.", constraint.getConstraintName(), ex);
+                            yield createProblemDetail(HttpStatus.NOT_FOUND, "The requested room does not exist.", ErrorType.ROOM_NOT_FOUND);
+                        }
+                    })
+                    .orElseGet(() -> {
+                        log.error("Unexpected database constraint violation: {}", constraintName, ex);
+                        return createProblemDetail(HttpStatus.BAD_REQUEST, "Invalid data provided.", ErrorType.RESERVATION_ERROR);
+                    });
+
+            return Optional.of(problemDetail);
+        }
+    }
+    return Optional.empty();
+}
+```
+
+Benefits of this Implementation
+
+- Robustness: Replaces fragile string literals with a strongly-typed enum. The compiler ensures that all switch cases are valid enum constants.
+- Maintainability: Centralizes the source of truth for database constraint names. If a constraint name changes in schema.sql, you only need to update the enum definition.
+- Efficiency: The static LOOKUP map ensures that resolving the constraint name to an enum constant is a high-performance O(1) operation.
+- Cleanliness: Uses modern Java features (switch expressions, Optional, Stream) to create a clear and expressive flow. It separates the "what" (identifying the constraint) from the "how" (handling the error).
+- Error Resilience: The orElseGet block handles unexpected or newly added database constraints gracefully, logging them as errors for investigation while still providing a consistent error response to the client.
+
+
+
 
 

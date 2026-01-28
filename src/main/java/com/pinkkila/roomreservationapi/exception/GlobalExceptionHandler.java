@@ -81,30 +81,33 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         if (cause instanceof org.postgresql.util.PSQLException psqlException) {
             var serverError = psqlException.getServerErrorMessage();
             if (serverError != null && serverError.getConstraint() != null) {
-                String constraint = serverError.getConstraint();
+                String constraintName = serverError.getConstraint();
                 
-                return Optional.of(switch (constraint) {
-                    case "reservation_overlap_excl" -> {
-                        log.warn("Database constraint violation: 'reservation_overlap_excl' - overlapping reservation occurred.");
-                        yield createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
-                    }
-                    case "start_before_end" -> {
-                        log.error("Validation bypass detected: 'start_before_end' constraint violated. Check @ValidReservationRange logic.", ex);
-                        yield createProblemDetail(HttpStatus.BAD_REQUEST, "The start time must be before the end time.", ErrorType.INVALID_RESERVATION_TIME);
-                    }
-                    case "start_in_future" -> {
-                        log.error("Validation bypass detected: 'start_in_future' constraint violated. Check @Future annotations in ReservationRequest.", ex);
-                        yield createProblemDetail(HttpStatus.BAD_REQUEST, "The reservation must start in the future.", ErrorType.INVALID_RESERVATION_TIME);
-                    }
-                    case "reservation_room_id_fkey" -> {
-                        log.error("Validation bypass detected: 'reservation_room_id_fkey' constraint violated. Check existence check in ReservationService.", ex);
-                        yield createProblemDetail(HttpStatus.NOT_FOUND, "The requested room does not exist.", ErrorType.ROOM_NOT_FOUND);
-                    }
-                    default -> {
-                        log.error("Unexpected database constraint violation: {}", constraint, ex);
-                        yield createProblemDetail(HttpStatus.BAD_REQUEST, "Invalid data provided.", ErrorType.RESERVATION_ERROR);
-                    }
-                });
+                ProblemDetail problemDetail = DatabaseConstraint.fromName(constraintName)
+                        .map(constraint -> switch (constraint) {
+                            case RESERVATION_OVERLAP -> {
+                                log.warn("Database constraint violation: '{}' - overlapping reservation occurred.", constraint.getConstraintName());
+                                yield createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+                            }
+                            case START_BEFORE_END -> {
+                                log.error("Validation bypass detected: '{}' constraint violated. Check @ValidReservationRange logic.", constraint.getConstraintName(), ex);
+                                yield createProblemDetail(HttpStatus.BAD_REQUEST, "The start time must be before the end time.", ErrorType.INVALID_RESERVATION_TIME);
+                            }
+                            case START_IN_FUTURE -> {
+                                log.error("Validation bypass detected: '{}' constraint violated. Check @Future annotations in ReservationRequest.", constraint.getConstraintName(), ex);
+                                yield createProblemDetail(HttpStatus.BAD_REQUEST, "The reservation must start in the future.", ErrorType.INVALID_RESERVATION_TIME);
+                            }
+                            case ROOM_ID_FOREIGN_KEY -> {
+                                log.error("Validation bypass detected: '{}' constraint violated. Check existence check in ReservationService.", constraint.getConstraintName(), ex);
+                                yield createProblemDetail(HttpStatus.NOT_FOUND, "The requested room does not exist.", ErrorType.ROOM_NOT_FOUND);
+                            }
+                        })
+                        .orElseGet(() -> {
+                            log.error("Unexpected database constraint violation: {}", constraintName, ex);
+                            return createProblemDetail(HttpStatus.BAD_REQUEST, "Invalid data provided.", ErrorType.RESERVATION_ERROR);
+                        });
+                
+                return Optional.of(problemDetail);
             }
         }
         return Optional.empty();
@@ -184,7 +187,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .collect(Collectors.toSet());
         
         log.warn("Method validation failed: fields={}", fields);
-
+        
         ProblemDetail problemDetail = createProblemDetail(HttpStatus.valueOf(status.value()), "One or more path parameters are invalid.", ErrorType.INVALID_PATH_PARAMETER);
         return createResponseEntity(problemDetail, headers, status, request);
     }
