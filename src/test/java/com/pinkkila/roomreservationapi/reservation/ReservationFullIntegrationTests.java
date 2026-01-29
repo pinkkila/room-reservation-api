@@ -1,6 +1,7 @@
 package com.pinkkila.roomreservationapi.reservation;
 
 import com.pinkkila.roomreservationapi.TestcontainersConfiguration;
+import com.pinkkila.roomreservationapi.exception.ErrorType;
 import com.pinkkila.roomreservationapi.room.Room;
 import com.pinkkila.roomreservationapi.room.RoomRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -102,8 +103,8 @@ class ReservationFullIntegrationTests {
                     .exchange()
                     .expectStatus().isEqualTo(409)
                     .expectBody()
-                    .jsonPath("$.title").isEqualTo("Overlapping Reservation")
-                    .jsonPath("$.type").isEqualTo("urn:room-reservation-api:overlapping-reservation")
+                    .jsonPath("$.type").isEqualTo(ErrorType.OVERLAPPING_RESERVATION.toUrn().toString())
+                    .jsonPath("$.title").isEqualTo(ErrorType.OVERLAPPING_RESERVATION.getTitle())
                     .jsonPath("$.status").isEqualTo(409)
                     .jsonPath("$.detail").isEqualTo("The room is already reserved for the requested time period.");
         }
@@ -149,8 +150,8 @@ class ReservationFullIntegrationTests {
                     .exchange()
                     .expectStatus().isNotFound()
                     .expectBody()
-                    .jsonPath("$.title").isEqualTo("Room Not Found")
-                    .jsonPath("$.type").isEqualTo("urn:room-reservation-api:room-not-found")
+                    .jsonPath("$.type").isEqualTo(ErrorType.ROOM_NOT_FOUND.toUrn().toString())
+                    .jsonPath("$.title").isEqualTo(ErrorType.ROOM_NOT_FOUND.getTitle())
                     .jsonPath("$.status").isEqualTo(404)
                     .jsonPath("$.detail").isEqualTo("Room with ID 999 not found");
         }
@@ -174,7 +175,10 @@ class ReservationFullIntegrationTests {
                         .exchange()
                         .expectStatus().isBadRequest()
                         .expectBody()
-                        .jsonPath("$.title").isEqualTo("Invalid Request Body")
+                        .jsonPath("$.type").isEqualTo(ErrorType.INVALID_REQUEST_BODY.toUrn().toString())
+                        .jsonPath("$.title").isEqualTo(ErrorType.INVALID_REQUEST_BODY.getTitle())
+                        .jsonPath("$.status").isEqualTo(400)
+                        .jsonPath("$.detail").isEqualTo("The data provided in the request body is invalid.")
                         .jsonPath("$.errors.startTime").isEqualTo("Start time must be in the future");
             }
 
@@ -195,7 +199,9 @@ class ReservationFullIntegrationTests {
                         .exchange()
                         .expectStatus().isBadRequest()
                         .expectBody()
-                        .jsonPath("$.title").isEqualTo("Invalid Request Body")
+                        .jsonPath("$.type").isEqualTo(ErrorType.INVALID_REQUEST_BODY.toUrn().toString())
+                        .jsonPath("$.title").isEqualTo(ErrorType.INVALID_REQUEST_BODY.getTitle())
+                        .jsonPath("$.status").isEqualTo(400)
                         .jsonPath("$.detail").isEqualTo("The data provided in the request body is invalid.")
                         .jsonPath("$.errors.invalidField").isEqualTo("Start time must be before end time");
             }
@@ -212,7 +218,10 @@ class ReservationFullIntegrationTests {
                         .exchange()
                         .expectStatus().isBadRequest()
                         .expectBody()
-                        .jsonPath("$.title").isEqualTo("Invalid Request Body")
+                        .jsonPath("$.type").isEqualTo(ErrorType.INVALID_REQUEST_BODY.toUrn().toString())
+                        .jsonPath("$.title").isEqualTo(ErrorType.INVALID_REQUEST_BODY.getTitle())
+                        .jsonPath("$.status").isEqualTo(400)
+                        .jsonPath("$.detail").isEqualTo("The data provided in the request body is invalid.")
                         .jsonPath("$.errors.roomId").isEqualTo("Room ID is required")
                         .jsonPath("$.errors.startTime").isEqualTo("Start time is required")
                         .jsonPath("$.errors.endTime").isEqualTo("End time is required");
@@ -296,8 +305,8 @@ class ReservationFullIntegrationTests {
                     .exchange()
                     .expectStatus().isNotFound()
                     .expectBody()
-                    .jsonPath("$.title").isEqualTo("Room Not Found")
-                    .jsonPath("$.type").isEqualTo("urn:room-reservation-api:room-not-found")
+                    .jsonPath("$.type").isEqualTo(ErrorType.ROOM_NOT_FOUND.toUrn().toString())
+                    .jsonPath("$.title").isEqualTo(ErrorType.ROOM_NOT_FOUND.getTitle())
                     .jsonPath("$.status").isEqualTo(404)
                     .jsonPath("$.detail").isEqualTo("Room with ID 999 not found");
         }
@@ -313,9 +322,10 @@ class ReservationFullIntegrationTests {
                     .exchange()
                     .expectStatus().isBadRequest()
                     .expectBody()
-                    .jsonPath("$.title").isEqualTo("Invalid Request Parameters")
-                    .jsonPath("$.type").isEqualTo("urn:room-reservation-api:invalid-request-parameters")
+                    .jsonPath("$.type").isEqualTo(ErrorType.INVALID_REQUEST_PARAMETERS.toUrn().toString())
+                    .jsonPath("$.title").isEqualTo(ErrorType.INVALID_REQUEST_PARAMETERS.getTitle())
                     .jsonPath("$.status").isEqualTo(400)
+                    .jsonPath("$.detail").isEqualTo("One or more request parameters provided in the URL are invalid.")
                     .jsonPath("$.errors.sortBy").isEqualTo("Invalid sort field. Allowed fields are: [id, startTime, endTime, roomId]");
         }
     }
@@ -357,8 +367,8 @@ class ReservationFullIntegrationTests {
                     .exchange()
                     .expectStatus().isNotFound()
                     .expectBody()
-                    .jsonPath("$.title").isEqualTo("Reservation Not Found")
-                    .jsonPath("$.type").isEqualTo("urn:room-reservation-api:reservation-not-found")
+                    .jsonPath("$.type").isEqualTo(ErrorType.RESERVATION_NOT_FOUND.toUrn().toString())
+                    .jsonPath("$.title").isEqualTo(ErrorType.RESERVATION_NOT_FOUND.getTitle())
                     .jsonPath("$.status").isEqualTo(404)
                     .jsonPath("$.detail").isEqualTo("Reservation with ID 999 not found");
         }
@@ -371,9 +381,10 @@ class ReservationFullIntegrationTests {
                     .exchange()
                     .expectStatus().isBadRequest()
                     .expectBody()
-                    .jsonPath("$.title").isEqualTo("Invalid Path Parameter")
-                    .jsonPath("$.type").isEqualTo("urn:room-reservation-api:invalid-path-parameter")
-                    .jsonPath("$.status").isEqualTo(400);
+                    .jsonPath("$.type").isEqualTo(ErrorType.INVALID_PATH_PARAMETER.toUrn().toString())
+                    .jsonPath("$.title").isEqualTo(ErrorType.INVALID_PATH_PARAMETER.getTitle())
+                    .jsonPath("$.status").isEqualTo(400)
+                    .jsonPath("$.detail").isEqualTo("One or more path parameters are invalid.");
         }
     }
 
