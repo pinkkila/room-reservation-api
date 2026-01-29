@@ -5942,3 +5942,137 @@ CONSTRAINT start_in_future CHECK (start_time >= now())
 ```
 
 Rely on your application-level @Future validation instead to ensure new reservations are made for the future.
+
+
+---
+
+**Prompti 61**
+
+Take a close look at the whole repository. 
+
+Then look at the ReservationFullIntegreationTest class @file:ReservationFullIntegrationTests.java . There are already tests implemented. Review all of them and if it is possible to improve them, implement those improvements. If there is test cases missing add those tests. 
+
+Modify only code that is in ReservationIntegrationTest.
+
+#### Test data
+- Use ReservationTestData to generate data for tests.
+
+#### End-to-end behavior
+- Tests must exercise the full application flow:
+    - HTTP → controller → service → repository → database
+- Verify externally observable behavior only:
+    - HTTP status
+    - Response body
+- Avoid asserting internal implementation details.
+
+#### Error and exception scenarios
+- Integration tests must cover:
+    - Validation errors
+    - Business rule violations
+    - Not-found cases
+- Verify:
+    - HTTP status
+    - Error response structure
+    - Consistency with GlobalExceptionHandler behavior
+
+#### WebTestClient usage
+- Use `WebTestClient` for all HTTP interactions.
+- Requests must:
+    - Assert status and response body
+
+If there is something ambiguous, ask before implementing.
+
+
+**Junie**
+
+Update on task progress
+
+I have reviewed the current ReservationFullIntegrationTests.java and relevant classes like ReservationRequest, ReservationQuery, and GlobalExceptionHandler.
+
+Current findings:
+- ReservationFullIntegrationTests.java covers basic success scenarios and some error cases.
+- It uses a mix of manual object creation and ReservationTestData.
+- Missing coverage for:
+  - Detailed validation errors in POST (past dates, end before start, missing fields).
+  - Overlapping edge cases (touching).
+  - Detailed verification of ProblemDetail fields in error responses.
+  - More thorough pagination scenarios (empty results).
+- Some cleanup in existing tests is possible (e.g., unused variables).
+
+Next steps:
+- Implement missing validation tests for POST.
+- Add touching reservation test (non-overlapping).
+- Improve error response assertions to include title, type, and detail.
+- Refactor to use ReservationTestData more consistently.
+- Verify all tests pass.
+
+Run test
+
+src/test/java/com/pinkkila/roomreservationapi/reservation/ReservationFullIntegrationTests.java
+
+ReservationFullIntegrationTests.java +110 -15
+
+The integration test file was updated to include comprehensive tests for creating reservations, handling overlapping reservations, validating reservation times, and checking for non-existent rooms.
+
+ReservationFullIntegrationTests.java +39 -9
+
+The test suite was updated with new and modified tests for reservation retrieval and deletion, but a semantic error occurred due to an unresolved method in the assertions.
+
+ReservationFullIntegrationTests.java +1 -1
+
+The test code was updated to verify that only one reservation remains and its roomId matches the expected value after deletion.
+
+Run test
+
+src/test/java/com/pinkkila/roomreservationapi/reservation/ReservationFullIntegrationTests.java
+
+ReservationFullIntegrationTests.java +1 -1
+
+A test assertion was updated to change the error message format for an invalid field from "The start time must be before the end time" to "Start time must be before end time".
+
+Update on task progress
+
+I have updated ReservationFullIntegrationTests.java with improved assertions and new test cases, including validation errors and touching reservations. I found a mismatch in the error message for invalid reservation range and fixed it. I also improved the DeleteReservation test to verify that the correct reservation is deleted when multiple exist. Currently, I am verifying the changes by running the tests.
+
+Run test
+
+src/test/java/com/pinkkila/roomreservationapi/reservation/ReservationFullIntegrationTests.java
+
+Changed Files
+
+ReservationFullIntegrationTests.java +149 -24
+
+Improved Reservation Full Integration Tests
+
+The ReservationFullIntegrationTests.java class has been significantly improved to provide comprehensive coverage of the application flow and edge cases, following the project's technical guidelines.
+
+Key Improvements:
+- Comprehensive Validation Testing: Added a Validation nested class within CreateReservation to test:
+  - Missing required fields.
+  - Start time in the past.
+  - End time before start time.
+
+- Edge Case Coverage: Added a test case for "touching" reservations (where one starts exactly when another ends), verifying that this does not trigger a conflict.
+
+- Enhanced Error Assertions: All error scenarios now verify the full ProblemDetail structure (RFC 9457), including:
+  - title
+  - type (URN)
+  - status
+  - detail
+  - errors (for validation failures)
+- Consistent Data Usage: Refactored tests to use ReservationTestData consistently for generating requests and entities.
+- Improved Success Verification: Updated the DELETE test to verify that specifically the targeted reservation is removed while others remain, rather than just checking for an empty database.
+- Pagination & Filtering: Added a test for empty search results when filtering by roomId.
+
+Verified Scenarios:
+- Successful reservation creation, retrieval (paginated & filtered), and deletion.
+- Business rule violations (overlapping reservations).
+- Existence checks (Room not found, Reservation not found).
+- Input validation and binding errors (Malformed JSON, invalid types, invalid query parameters).
+
+All tests in ReservationFullIntegrationTests.java are passing.
+
+---
+
+
+

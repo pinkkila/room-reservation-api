@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("test")
 @DisplayName("Reservation Integration Tests")
-class ReservationIntegrationTests {
+class ReservationFullIntegrationTests {
 
     @Autowired
     private WebTestClient webTestClient;
@@ -57,11 +57,9 @@ class ReservationIntegrationTests {
         @Test
         @DisplayName("should create a reservation")
         void shouldCreateReservation() {
-            ReservationRequest request = new ReservationRequest(
-                    roomId1,
-                    OffsetDateTime.now().plusDays(1).withNano(0),
-                    OffsetDateTime.now().plusDays(1).plusHours(1).withNano(0)
-            );
+            ReservationRequest request = anOneHourReservation()
+                    .withRoom(roomId1)
+                    .asRequest();
 
             webTestClient.post()
                     .uri("/api/reservations")
@@ -84,8 +82,10 @@ class ReservationIntegrationTests {
             OffsetDateTime start = OffsetDateTime.now().plusDays(2).withNano(0);
             OffsetDateTime end = start.plusHours(1);
 
-            ReservationRequest request1 = new ReservationRequest(roomId1, start, end);
-            ReservationRequest request2 = new ReservationRequest(roomId1, start.plusMinutes(30), end.plusMinutes(30));
+            ReservationRequest request = anOneHourReservation()
+                    .withRoom(roomId1)
+                    .withStartTime(start.plusMinutes(30))
+                    .asRequest();
 
             // First reservation via repository
             reservationRepository.save(anOneHourReservation()
@@ -98,21 +98,49 @@ class ReservationIntegrationTests {
             webTestClient.post()
                     .uri("/api/reservations")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(request2)
+                    .bodyValue(request)
                     .exchange()
                     .expectStatus().isEqualTo(409)
                     .expectBody()
-                    .jsonPath("$.title").isEqualTo("Overlapping Reservation");
+                    .jsonPath("$.title").isEqualTo("Overlapping Reservation")
+                    .jsonPath("$.type").isEqualTo("urn:room-reservation-api:overlapping-reservation")
+                    .jsonPath("$.status").isEqualTo(409)
+                    .jsonPath("$.detail").isEqualTo("The room is already reserved for the requested time period.");
+        }
+
+        @Test
+        @DisplayName("should create reservation when they touch (end time = next start time)")
+        void shouldCreateReservationWhenTouching() {
+            OffsetDateTime start = OffsetDateTime.now().plusDays(2).withNano(0);
+            OffsetDateTime end = start.plusHours(1);
+
+            // First reservation
+            reservationRepository.save(anOneHourReservation()
+                    .withRoom(roomId1)
+                    .withStartTime(start)
+                    .withEndTime(end)
+                    .build());
+
+            // The second reservation starts exactly when the first ends
+            ReservationRequest request = anOneHourReservation()
+                    .withRoom(roomId1)
+                    .withStartTime(end)
+                    .asRequest();
+
+            webTestClient.post()
+                    .uri("/api/reservations")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(request)
+                    .exchange()
+                    .expectStatus().isCreated();
         }
 
         @Test
         @DisplayName("should return 404 when room does not exist")
         void shouldReturn404WhenRoomNotFound() {
-            ReservationRequest request = new ReservationRequest(
-                    999,
-                    OffsetDateTime.now().plusDays(1).withNano(0),
-                    OffsetDateTime.now().plusDays(1).plusHours(1).withNano(0)
-            );
+            ReservationRequest request = anOneHourReservation()
+                    .withRoom(999)
+                    .asRequest();
 
             webTestClient.post()
                     .uri("/api/reservations")
@@ -121,7 +149,74 @@ class ReservationIntegrationTests {
                     .exchange()
                     .expectStatus().isNotFound()
                     .expectBody()
-                    .jsonPath("$.title").isEqualTo("Room Not Found");
+                    .jsonPath("$.title").isEqualTo("Room Not Found")
+                    .jsonPath("$.type").isEqualTo("urn:room-reservation-api:room-not-found")
+                    .jsonPath("$.status").isEqualTo(404)
+                    .jsonPath("$.detail").isEqualTo("Room with ID 999 not found");
+        }
+
+        @Nested
+        @DisplayName("Validation")
+        class Validation {
+
+            @Test
+            @DisplayName("should return 400 when start time is in the past")
+            void shouldReturn400WhenStartTimeInPast() {
+                ReservationRequest request = anOneHourReservation()
+                        .withRoom(roomId1)
+                        .withStartTime(OffsetDateTime.now().minusDays(1))
+                        .asRequest();
+
+                webTestClient.post()
+                        .uri("/api/reservations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(request)
+                        .exchange()
+                        .expectStatus().isBadRequest()
+                        .expectBody()
+                        .jsonPath("$.title").isEqualTo("Invalid Request Body")
+                        .jsonPath("$.errors.startTime").isEqualTo("Start time must be in the future");
+            }
+
+            @Test
+            @DisplayName("should return 400 when end time is before start time")
+            void shouldReturn400WhenEndTimeBeforeStartTime() {
+                OffsetDateTime start = OffsetDateTime.now().plusDays(1);
+                ReservationRequest request = anOneHourReservation()
+                        .withRoom(roomId1)
+                        .withStartTime(start)
+                        .withEndTime(start.minusHours(1))
+                        .asRequest();
+
+                webTestClient.post()
+                        .uri("/api/reservations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(request)
+                        .exchange()
+                        .expectStatus().isBadRequest()
+                        .expectBody()
+                        .jsonPath("$.title").isEqualTo("Invalid Request Body")
+                        .jsonPath("$.detail").isEqualTo("The data provided in the request body is invalid.")
+                        .jsonPath("$.errors.invalidField").isEqualTo("Start time must be before end time");
+            }
+
+            @Test
+            @DisplayName("should return 400 when required fields are missing")
+            void shouldReturn400WhenFieldsAreMissing() {
+                ReservationRequest request = new ReservationRequest(null, null, null);
+
+                webTestClient.post()
+                        .uri("/api/reservations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(request)
+                        .exchange()
+                        .expectStatus().isBadRequest()
+                        .expectBody()
+                        .jsonPath("$.title").isEqualTo("Invalid Request Body")
+                        .jsonPath("$.errors.roomId").isEqualTo("Room ID is required")
+                        .jsonPath("$.errors.startTime").isEqualTo("Start time is required")
+                        .jsonPath("$.errors.endTime").isEqualTo("End time is required");
+            }
         }
     }
 
@@ -156,6 +251,21 @@ class ReservationIntegrationTests {
         }
 
         @Test
+        @DisplayName("should return empty list when no reservations found for filter")
+        void shouldReturnEmptyListWhenNoReservationsFound() {
+            webTestClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/reservations")
+                            .queryParam("roomId", roomId1.toString())
+                            .build())
+                    .exchange()
+                    .expectStatus().isOk()
+                    .expectBody()
+                    .jsonPath("$.content.length()").isEqualTo(0)
+                    .jsonPath("$.page.totalElements").isEqualTo(0);
+        }
+
+        @Test
         @DisplayName("should filter by roomId")
         void shouldFilterByRoomId() {
             // Given
@@ -186,7 +296,10 @@ class ReservationIntegrationTests {
                     .exchange()
                     .expectStatus().isNotFound()
                     .expectBody()
-                    .jsonPath("$.title").isEqualTo("Room Not Found");
+                    .jsonPath("$.title").isEqualTo("Room Not Found")
+                    .jsonPath("$.type").isEqualTo("urn:room-reservation-api:room-not-found")
+                    .jsonPath("$.status").isEqualTo(404)
+                    .jsonPath("$.detail").isEqualTo("Room with ID 999 not found");
         }
 
         @Test
@@ -198,7 +311,12 @@ class ReservationIntegrationTests {
                             .queryParam("sortBy", "secret_column")
                             .build())
                     .exchange()
-                    .expectStatus().isBadRequest();
+                    .expectStatus().isBadRequest()
+                    .expectBody()
+                    .jsonPath("$.title").isEqualTo("Invalid Request Parameters")
+                    .jsonPath("$.type").isEqualTo("urn:room-reservation-api:invalid-request-parameters")
+                    .jsonPath("$.status").isEqualTo(400)
+                    .jsonPath("$.errors.sortBy").isEqualTo("Invalid sort field. Allowed fields are: [id, startTime, endTime, roomId]");
         }
     }
 
@@ -209,23 +327,26 @@ class ReservationIntegrationTests {
         @Test
         @DisplayName("should delete reservation and return 204")
         void shouldDeleteReservation() {
-            // Given: Create a reservation first
-            Reservation saved = reservationRepository.save(anOneHourReservation().withRoom(roomId1).build());
-            Long reservationId = saved.getId();
+            // Given: Create two reservations
+            Reservation saved1 = reservationRepository.save(anOneHourReservation().withRoom(roomId1).build());
+            reservationRepository.save(anOneHourReservation().withRoom(roomId2).build());
+            
+            Long reservationId = saved1.getId();
 
-            // When: Delete it
+            // When: Delete the first one
             webTestClient.delete()
                     .uri("/api/reservations/{id}", reservationId)
                     .exchange()
                     .expectStatus().isNoContent();
 
-            // Then: Verify it's gone
+            // Then: Verify only one remains
             webTestClient.get()
                     .uri("/api/reservations")
                     .exchange()
                     .expectStatus().isOk()
                     .expectBody()
-                    .jsonPath("$.page.totalElements").isEqualTo(0);
+                    .jsonPath("$.page.totalElements").isEqualTo(1)
+                    .jsonPath("$.content[0].roomId").isEqualTo(roomId2);
         }
 
         @Test
@@ -237,6 +358,8 @@ class ReservationIntegrationTests {
                     .expectStatus().isNotFound()
                     .expectBody()
                     .jsonPath("$.title").isEqualTo("Reservation Not Found")
+                    .jsonPath("$.type").isEqualTo("urn:room-reservation-api:reservation-not-found")
+                    .jsonPath("$.status").isEqualTo(404)
                     .jsonPath("$.detail").isEqualTo("Reservation with ID 999 not found");
         }
 
@@ -248,7 +371,9 @@ class ReservationIntegrationTests {
                     .exchange()
                     .expectStatus().isBadRequest()
                     .expectBody()
-                    .jsonPath("$.title").isEqualTo("Invalid Path Parameter");
+                    .jsonPath("$.title").isEqualTo("Invalid Path Parameter")
+                    .jsonPath("$.type").isEqualTo("urn:room-reservation-api:invalid-path-parameter")
+                    .jsonPath("$.status").isEqualTo(400);
         }
     }
 
