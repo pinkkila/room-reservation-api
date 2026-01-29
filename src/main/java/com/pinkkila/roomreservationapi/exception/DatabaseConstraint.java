@@ -19,7 +19,6 @@ import java.util.stream.Stream;
 public enum DatabaseConstraint {
     RESERVATION_OVERLAP("reservation_overlap_excl"),
     START_BEFORE_END("start_before_end"),
-    START_IN_FUTURE("start_in_future"),
     ROOM_ID_FOREIGN_KEY("reservation_room_id_fkey");
     
     private final String constraintName;

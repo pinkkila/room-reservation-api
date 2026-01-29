@@ -93,10 +93,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                                 log.error("Validation bypass detected: '{}' constraint violated. Check @ValidReservationRange logic.", constraint.getConstraintName(), ex);
                                 yield createProblemDetail(HttpStatus.BAD_REQUEST, "The start time must be before the end time.", ErrorType.INVALID_REQUEST_BODY);
                             }
-                            case START_IN_FUTURE -> {
-                                log.error("Validation bypass detected: '{}' constraint violated. Check @Future annotations in ReservationRequest.", constraint.getConstraintName(), ex);
-                                yield createProblemDetail(HttpStatus.BAD_REQUEST, "The reservation must start in the future.", ErrorType.INVALID_REQUEST_BODY);
-                            }
                             case ROOM_ID_FOREIGN_KEY -> {
                                 log.error("Validation bypass detected: '{}' constraint violated. Check existence check in ReservationService.", constraint.getConstraintName(), ex);
                                 yield createProblemDetail(HttpStatus.NOT_FOUND, "The requested room does not exist.", ErrorType.ROOM_NOT_FOUND);

@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS reservation (
     start_time TIMESTAMPTZ NOT NULL,
     end_time TIMESTAMPTZ NOT NULL,
     CONSTRAINT start_before_end CHECK (start_time < end_time),
-    CONSTRAINT start_in_future CHECK (start_time >= now()),
     CONSTRAINT reservation_overlap_excl EXCLUDE USING GIST (
         room_id WITH =,
         tstzrange(start_time, end_time) WITH &&
