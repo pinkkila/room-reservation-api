@@ -5777,6 +5777,100 @@ Note: If PSQLException is not visible in your test code, ensure that your Postgr
 
 ---
 
+**Prompti 59**
+
+First take a close look at the ReservationController @file:ReservationControllerTests.java and ReservationTestData @file:ReservationTestData.java  classes. Application business logic does not allow reservations where startTime or endTime is in the past. ReservationControllerTest tests use now OffseDateTime values that are going to be in the past when time goes by. Refactor test so that they use ReservationTestData implementation. Don't do any other changes. Don't change test logic or how the test is implemented (besides the refactoring to ReservationTestData usage). If there is a mistake in the test, or it is poorly implemented, then explain and ask.
+
+@file:GlobalExceptionHandler.java @file:ErrorType.java  @file:ReservationController.java
+
+
+**Junie**
+
+Run test
+
+src/test/java/com/pinkkila/roomreservationapi/reservation/ReservationControllerTests.java
+
+Update on task progress
+
+The tests in ReservationControllerTests.java currently use hardcoded dates, some of which are nearing their 'past' status or are already intended to be in the past for negative testing. To ensure long-term stability and compliance with business logic (which forbids past reservations), these tests should use ReservationTestData to generate dynamic, future-dated test data. Initial test run shows all 36 tests passing, confirming a stable baseline. I will refactor the identified test cases to use ReservationTestData.
+
+ReservationControllerTests.java +1
+
+The import statements in the test file were updated to include additional necessary imports without duplication.
+
+ReservationControllerTests.java +10 -14
+
+A test method for successful reservation creation returning a 201 status with the expected response body was added to the reservation controller tests.
+
+ReservationControllerTests.java +5 -4
+
+The test for overlapping reservation creation was updated to use dynamic test data for the request JSON while maintaining the same assertions for a 409 Conflict response.
+
+ReservationControllerTests.java +11 -4
+
+The test for creating a reservation with the end time before the start time was updated to use dynamic timestamps while still expecting a 400 status with specific field error messages.
+
+ReservationControllerTests.java +10 -4
+
+The test for creating a reservation with start and end times in the past was updated to dynamically generate past timestamps, maintaining the validation that such requests return a 400 status with specific field errors.
+
+ReservationControllerTests.java +5 -4
+
+A new test was added to verify that creating a reservation for a non-existent room returns a 404 Not Found response with the appropriate error details.
+
+ReservationControllerTests.java +4 -3
+
+A test was added to verify that submitting malformed JSON returns a 400 status with appropriate error details.
+
+ReservationControllerTests.java +9 -3
+
+A test was added to verify that invalid reservation fields return a 400 status with appropriate field error messages
+
+ReservationControllerTests.java +5 -4
+
+A new test was added to verify that an unknown DbActionExecutionException during reservation creation returns a 500 internal server error with the appropriate error details.
+
+Update on task progress
+
+Refactored all tests in the CreateReservation nested class to use ReservationTestData. This ensures that startTime and endTime are dynamically generated (defaulting to the future) rather than hardcoded. I also refactored the MALFORMED_JSON test to use ReservationTestData for the valid portions of the JSON to maintain consistency. I'm now proceeding to refactor the GetReservations nested class.
+
+ReservationControllerTests.java +7 -9
+
+A test was added to verify that the API returns a 200 status with a page of reservations using default pagination and sorting parameters.
+
+ReservationControllerTests.java +7 -9
+
+A new test was added to verify that the reservations API returns a 200 status with correct pagination and filtering by roomId on the second page.
+
+Run test
+
+src/test/java/com/pinkkila/roomreservationapi/reservation/ReservationControllerTests.java
+
+Changed Files
+
+ReservationControllerTests.java +73 -58
+
+Solution Summary
+
+Refactored ReservationControllerTests.java to use ReservationTestData for generating dynamic test data, ensuring long-term stability and compliance with business logic that forbids past reservations.
+
+Key Changes:
+- Imported ReservationTestData: Added the necessary import to ReservationControllerTests.java.
+- Refactored CreateReservation Tests:
+  - Replaced hardcoded date strings and manual ReservationRequest/ReservationResponse creations with ReservationTestData.anOneHourReservation().
+  - Used the dynamic values from the builder to populate requestJson using string formatting (.formatted()).
+  - Handled negative test cases (past dates, invalid ranges) by overriding the builder's default future-dated startTime or endTime.
+    
+- Refactored GetReservations Tests:
+  - Replaced manual ReservationResponse creations with ReservationTestData.anOneHourReservation().asResponse().
+  - Updated jsonPath assertions to use the dynamic values from the generated ReservationResponse.
+
+- Verified Success: Ran all 36 tests in ReservationControllerTests.java, and all passed successfully. 
+- Removed Hardcoded Dates: Verified that no hardcoded date strings (e.g., "2026", "2025") remain in the test file.
+    
+These changes make the tests more maintainable and resilient to the passage of time
+
+---
 
 
 

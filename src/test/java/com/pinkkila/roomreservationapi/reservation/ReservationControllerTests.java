@@ -4,6 +4,7 @@ import com.pinkkila.roomreservationapi.exception.ErrorType;
 import com.pinkkila.roomreservationapi.exception.GlobalExceptionHandler;
 import com.pinkkila.roomreservationapi.reservation.exception.ReservationNotFoundException;
 import com.pinkkila.roomreservationapi.room.exception.RoomNotFoundException;
+import com.pinkkila.roomreservationapi.testdata.ReservationTestData;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -45,33 +46,29 @@ class ReservationControllerTests {
         @Test
         @DisplayName("Successful creation should return 201 Created with response body")
         void createReservation_Success_Returns201() throws Exception {
-            ReservationResponse response = new ReservationResponse(
-                    1L,
-                    1,
-                    OffsetDateTime.parse("2026-02-21T15:00:00Z"),
-                    OffsetDateTime.parse("2026-02-21T16:00:00Z")
-            );
+            var reservationBuilder = ReservationTestData.anOneHourReservation().withRoom(1);
+            ReservationResponse response = reservationBuilder.asResponse(1L);
 
             when(reservationService.createReservation(any(ReservationRequest.class)))
                     .thenReturn(response);
 
             String requestJson = """
                     {
-                      "roomId": 1,
-                      "startTime": "2026-02-21T15:00:00Z",
-                      "endTime": "2026-02-21T16:00:00Z"
+                      "roomId": %d,
+                      "startTime": "%s",
+                      "endTime": "%s"
                     }
-                    """;
+                    """.formatted(response.roomId(), response.startTime(), response.endTime());
 
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestJson))
                     .andExpect(status().isCreated())
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(jsonPath("$.id").value(1))
-                    .andExpect(jsonPath("$.roomId").value(1))
-                    .andExpect(jsonPath("$.startTime").value("2026-02-21T15:00:00Z"))
-                    .andExpect(jsonPath("$.endTime").value("2026-02-21T16:00:00Z"));
+                    .andExpect(jsonPath("$.id").value(response.id()))
+                    .andExpect(jsonPath("$.roomId").value(response.roomId()))
+                    .andExpect(jsonPath("$.startTime").value(response.startTime().toString()))
+                    .andExpect(jsonPath("$.endTime").value(response.endTime().toString()));
         }
         
         @Test
@@ -88,13 +85,14 @@ class ReservationControllerTests {
             when(reservationService.createReservation(any(ReservationRequest.class)))
                     .thenThrow(dbActionExecutionException);
             
+            var request = ReservationTestData.anOneHourReservation().withRoom(1).asRequest();
             String requestJson = """
                     {
-                      "roomId": 1,
-                      "startTime": "2026-02-21T15:00:00Z",
-                      "endTime": "2026-02-21T16:00:00Z"
+                      "roomId": %d,
+                      "startTime": "%s",
+                      "endTime": "%s"
                     }
-                    """;
+                    """.formatted(request.roomId(), request.startTime(), request.endTime());
             
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -108,13 +106,20 @@ class ReservationControllerTests {
         @Test
         @DisplayName("Reservation with end time before start time should return 400 with field errors")
         void createReservation_EndTimeBeforeStartTime_Returns400WithErrors() throws Exception {
+            var startTime = OffsetDateTime.now().plusDays(1).withNano(0);
+            var request = ReservationTestData.anOneHourReservation()
+                    .withRoom(1)
+                    .withStartTime(startTime)
+                    .withEndTime(startTime.minusHours(1))
+                    .asRequest();
+
             String invalidJson = """
                     {
-                      "roomId": 1,
-                      "startTime": "2026-02-21T16:00:00Z",
-                      "endTime": "2026-02-21T15:00:00Z"
+                      "roomId": %d,
+                      "startTime": "%s",
+                      "endTime": "%s"
                     }
-                    """;
+                    """.formatted(request.roomId(), request.startTime(), request.endTime());
             
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -129,13 +134,19 @@ class ReservationControllerTests {
         @Test
         @DisplayName("Reservation with start and end time in past should return 400 with field errors")
         void createReservation_StartTimeEndTimeInPast_Returns400WithErrors() throws Exception {
+            var startTime = OffsetDateTime.now().minusDays(1).withNano(0);
+            var request = ReservationTestData.anOneHourReservation()
+                    .withRoom(1)
+                    .withStartTime(startTime)
+                    .asRequest();
+
             String invalidJson = """
                     {
-                      "roomId": 1,
-                      "startTime": "2025-02-21T16:00:00Z",
-                      "endTime": "2025-02-21T17:00:00Z"
+                      "roomId": %d,
+                      "startTime": "%s",
+                      "endTime": "%s"
                     }
-                    """;
+                    """.formatted(request.roomId(), request.startTime(), request.endTime());
 
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -155,13 +166,14 @@ class ReservationControllerTests {
             when(reservationService.createReservation(any(ReservationRequest.class)))
                     .thenThrow(new RoomNotFoundException(999));
             
+            var request = ReservationTestData.anOneHourReservation().withRoom(999).asRequest();
             String requestJson = """
                     {
-                      "roomId": 999,
-                      "startTime": "2026-02-21T15:00:00Z",
-                      "endTime": "2026-02-21T16:00:00Z"
+                      "roomId": %d,
+                      "startTime": "%s",
+                      "endTime": "%s"
                     }
-                    """;
+                    """.formatted(request.roomId(), request.startTime(), request.endTime());
             
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -175,13 +187,14 @@ class ReservationControllerTests {
         @Test
         @DisplayName("Malformed JSON should return 400")
         void createReservation_MalformedJson_Returns400WithErrors() throws Exception {
+            var request = ReservationTestData.anOneHourReservation().withRoom(1).asRequest();
             String malformedJson = """
                     {
-                      "roomId": 1,
+                      "roomId": %d,
                       "startTime": "xxx",
-                      "endTime": "2026-02-21T16:00:00Z"
+                      "endTime": "%s"
                     }
-                    """;
+                    """.formatted(request.roomId(), request.endTime());
 
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -195,13 +208,19 @@ class ReservationControllerTests {
         @Test
         @DisplayName("Invalid fields should return 400 with field errors")
         void createReservation_InvalidFields_Returns400WithFieldErrors() throws Exception {
+            var startTime = OffsetDateTime.now().plusDays(1).withNano(0);
+            var request = ReservationTestData.anOneHourReservation()
+                    .withStartTime(startTime)
+                    .withEndTime(startTime.minusHours(1))
+                    .asRequest();
+
             String invalidJson = """
                     {
                       "roomId": null,
-                      "startTime": "2026-02-21T15:00:00Z",
-                      "endTime": "2026-02-21T14:00:00Z"
+                      "startTime": "%s",
+                      "endTime": "%s"
                     }
-                    """;
+                    """.formatted(request.startTime(), request.endTime());
 
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -220,13 +239,14 @@ class ReservationControllerTests {
             when(reservationService.createReservation(any(ReservationRequest.class)))
                     .thenThrow(dbActionExecutionException);
 
+            var request = ReservationTestData.anOneHourReservation().withRoom(1).asRequest();
             String requestJson = """
                     {
-                      "roomId": 1,
-                      "startTime": "2026-02-21T15:00:00Z",
-                      "endTime": "2026-02-21T16:00:00Z"
+                      "roomId": %d,
+                      "startTime": "%s",
+                      "endTime": "%s"
                     }
-                    """;
+                    """.formatted(request.roomId(), request.startTime(), request.endTime());
 
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -245,11 +265,9 @@ class ReservationControllerTests {
         @Test
         @DisplayName("Should return 200 for page of reservations with default values")
         void getReservations_SuccessDefault_Returns200() throws Exception {
-            ReservationResponse res1 = new ReservationResponse(
-                    1L, 1,
-                    OffsetDateTime.parse("2026-02-21T15:00:00Z"),
-                    OffsetDateTime.parse("2026-02-21T16:00:00Z")
-            );
+            ReservationResponse res1 = ReservationTestData.anOneHourReservation()
+                    .withRoom(1)
+                    .asResponse(1L);
             Page<ReservationResponse> page = new PageImpl<>(List.of(res1), PageRequest.of(0, 20), 1);
 
             when(reservationService.getReservations(any(ReservationQuery.class)))
@@ -257,10 +275,10 @@ class ReservationControllerTests {
 
             mockMvc.perform(get("/api/reservations"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content[0].id").value(1))
-                    .andExpect(jsonPath("$.content[0].roomId").value(1))
-                    .andExpect(jsonPath("$.content[0].startTime").value("2026-02-21T15:00:00Z"))
-                    .andExpect(jsonPath("$.content[0].endTime").value("2026-02-21T16:00:00Z"))
+                    .andExpect(jsonPath("$.content[0].id").value(res1.id()))
+                    .andExpect(jsonPath("$.content[0].roomId").value(res1.roomId()))
+                    .andExpect(jsonPath("$.content[0].startTime").value(res1.startTime().toString()))
+                    .andExpect(jsonPath("$.content[0].endTime").value(res1.endTime().toString()))
                     .andExpect(jsonPath("$.page.totalElements").value(1))
                     .andExpect(jsonPath("$.page.size").value(20))
                     .andExpect(jsonPath("$.page.number").value(0))
@@ -280,11 +298,9 @@ class ReservationControllerTests {
         @Test
         @DisplayName("Should return 200 for reservations filtered by roomId in second page")
         void getReservations_SuccessWithFiltes_Returns200() throws Exception {
-            ReservationResponse res1 = new ReservationResponse(
-                    1L, 10,
-                    OffsetDateTime.parse("2026-05-21T15:00:00Z"),
-                    OffsetDateTime.parse("2026-05-21T16:00:00Z")
-            );
+            ReservationResponse res1 = ReservationTestData.anOneHourReservation()
+                    .withRoom(10)
+                    .asResponse(1L);
             Page<ReservationResponse> page = new PageImpl<>(List.of(res1), PageRequest.of(1, 10), 11);
 
             when(reservationService.getReservations(any(ReservationQuery.class)))
@@ -297,10 +313,10 @@ class ReservationControllerTests {
                             .param("sortBy", "endTime")
                             .param("sortOrder", "desc"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content[0].id").value(1))
-                    .andExpect(jsonPath("$.content[0].roomId").value(10))
-                    .andExpect(jsonPath("$.content[0].startTime").value("2026-05-21T15:00:00Z"))
-                    .andExpect(jsonPath("$.content[0].endTime").value("2026-05-21T16:00:00Z"))
+                    .andExpect(jsonPath("$.content[0].id").value(res1.id()))
+                    .andExpect(jsonPath("$.content[0].roomId").value(res1.roomId()))
+                    .andExpect(jsonPath("$.content[0].startTime").value(res1.startTime().toString()))
+                    .andExpect(jsonPath("$.content[0].endTime").value(res1.endTime().toString()))
                     .andExpect(jsonPath("$.page.totalElements").value(11))
                     .andExpect(jsonPath("$.page.size").value(10))
                     .andExpect(jsonPath("$.page.number").value(1))
