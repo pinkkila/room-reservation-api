@@ -1,6 +1,7 @@
 package com.pinkkila.roomreservationapi.reservation;
 
 import com.pinkkila.roomreservationapi.TestcontainersConfiguration;
+import com.pinkkila.roomreservationapi.exception.DatabaseConstraint;
 import com.pinkkila.roomreservationapi.room.Room;
 import com.pinkkila.roomreservationapi.room.RoomRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,10 +16,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.relational.core.conversion.DbActionExecutionException;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 
 import static com.pinkkila.roomreservationapi.testdata.ReservationTestData.anOneHourReservation;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -90,52 +91,108 @@ class ReservationRepositoryTests {
                 .build();
 
         assertThatThrownBy(() -> reservationRepository.save(res2))
-                .hasCauseInstanceOf(DataIntegrityViolationException.class);
+                .isInstanceOf(DbActionExecutionException.class)
+                .hasCauseInstanceOf(DataIntegrityViolationException.class)
+                .hasRootCauseInstanceOf(org.postgresql.util.PSQLException.class)
+                .rootCause()
+                .hasMessageContaining(DatabaseConstraint.RESERVATION_OVERLAP.getConstraintName());
     }
+    
+    @Test
+    @DisplayName("Should throw exception when start time is not before end time")
+    void shouldThrowExceptionWhenStarTimeIsNotBeforeEndTime() {
+        OffsetDateTime start = OffsetDateTime.now().plusDays(2).withNano(0);
+        OffsetDateTime end = start.minusHours(1);
+        
+        Reservation res1 = anOneHourReservation()
+                .withRoom(roomId1)
+                .withStartTime(start)
+                .withEndTime(end)
+                .build();
+        
+        assertThatThrownBy(() -> reservationRepository.save(res1))
+                .isInstanceOf(DbActionExecutionException.class)
+                .hasCauseInstanceOf(DataIntegrityViolationException.class)
+                .hasRootCauseInstanceOf(org.postgresql.util.PSQLException.class)
+                .rootCause()
+                .hasMessageContaining(DatabaseConstraint.START_BEFORE_END.getConstraintName());
+    }
+    
+    @Test
+    @DisplayName("Should throw exception when start time is not before end time")
+    void shouldThrowExceptionWhenNoRoomIdFound() {
+        OffsetDateTime start = OffsetDateTime.now().plusDays(2).withNano(0);
+        OffsetDateTime end = start.plusHours(1);
+        
+        Reservation res1 = anOneHourReservation()
+                .withRoom(999)
+                .withStartTime(start)
+                .withEndTime(end)
+                .build();
+        
+        assertThatThrownBy(() -> reservationRepository.save(res1))
+                .isInstanceOf(DbActionExecutionException.class)
+                .hasCauseInstanceOf(DataIntegrityViolationException.class)
+                .hasRootCauseInstanceOf(org.postgresql.util.PSQLException.class)
+                .rootCause()
+                .hasMessageContaining(DatabaseConstraint.ROOM_ID_FOREIGN_KEY.getConstraintName());
+    }
+    
 
     @Nested
     @DisplayName("Finding Reservations with Pagination and Filtering")
     class FindingReservations {
 
         @Test
-        @DisplayName("Should find all reservations with pagination")
+        @DisplayName("Should find all reservations with pagination and sorted with startTime ascending")
         void shouldFindAllWithPagination() {
             // Given
-            saveReservations(roomId1, 5);
+//            saveReservations(roomId1, 5);
+            OffsetDateTime start = OffsetDateTime.now().plusDays(1).withNano(0);
+            reservationRepository.save(anOneHourReservation().withRoom(roomId1).withStartTime(start).build());
+            reservationRepository.save(anOneHourReservation().withRoom(roomId1).withStartTime(start.plusHours(6)).build());
+            reservationRepository.save(anOneHourReservation().withRoom(roomId1).withStartTime(start.plusHours(4)).build());
+            reservationRepository.save(anOneHourReservation().withRoom(roomId1).withStartTime(start.plusHours(2)).build());
+            reservationRepository.save(anOneHourReservation().withRoom(roomId1).withStartTime(start.plusHours(8)).build());
 
             // When
-            Page<Reservation> page = reservationRepository.findAll(PageRequest.of(0, 3, Sort.by("id").ascending()));
+            Page<Reservation> page = reservationRepository.findAll(PageRequest.of(0, 3, Sort.by("startTime").ascending()));
 
             // Then
             assertThat(page.getContent()).hasSize(3);
             assertThat(page.getTotalElements()).isEqualTo(5);
             assertThat(page.getTotalPages()).isEqualTo(2);
+            assertThat(page.getNumber()).isZero();
+            
+            assertThat(page.getContent())
+                    .extracting(Reservation::getStartTime)
+                    .isSorted();
         }
 
         @Test
         @DisplayName("Should find reservations by roomId with pagination")
         void shouldFindByRoomIdWithPagination() {
             // Given
-            saveReservations(roomId1, 3);
-            saveReservations(roomId2, 2);
+            OffsetDateTime start = OffsetDateTime.now().plusDays(1).withNano(0);
+            reservationRepository.save(anOneHourReservation().withRoom(roomId1).withStartTime(start).build());
+            reservationRepository.save(anOneHourReservation().withRoom(roomId1).withStartTime(start.plusHours(4)).build());
+            reservationRepository.save(anOneHourReservation().withRoom(roomId1).withStartTime(start.plusHours(2)).build());
+            reservationRepository.save(anOneHourReservation().withRoom(roomId2).withStartTime(start.plusHours(4)).build());
+            reservationRepository.save(anOneHourReservation().withRoom(roomId2).withStartTime(start.plusHours(2)).build());
 
             // When
-            Page<Reservation> page = reservationRepository.findByRoomId(roomId1, PageRequest.of(0, 10));
+            Page<Reservation> page = reservationRepository.findByRoomId(roomId1, PageRequest.of(0, 10, Sort.by("startTime").ascending()));
 
             // Then
             assertThat(page.getContent()).hasSize(3);
             assertThat(page.getTotalElements()).isEqualTo(3);
+            assertThat(page.getTotalPages()).isEqualTo(1);
             assertThat(page.getContent()).allMatch(r -> r.getRoomId().equals(roomId1));
+            
+            assertThat(page.getContent())
+                    .extracting(Reservation::getStartTime)
+                    .isSorted();
         }
 
-        private void saveReservations(int roomId, int count) {
-            OffsetDateTime now = OffsetDateTime.now();
-            for (int i = 0; i < count; i++) {
-                reservationRepository.save(anOneHourReservation()
-                        .withRoom(roomId)
-                        .withStartTime(now.plusDays(roomId).plusHours(i * 2))
-                        .build());
-            }
-        }
     }
 }

@@ -5872,5 +5872,73 @@ These changes make the tests more maintainable and resilient to the passage of t
 
 ---
 
+**Prompti 60**
 
+Is the constraint start_in_future good constraint in this PostgreSQL schema?
 
+```sql
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+CREATE TABLE IF NOT EXISTS room (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS reservation (
+    id BIGSERIAL PRIMARY KEY,
+    room_id INT NOT NULL REFERENCES room(id),
+    start_time TIMESTAMPTZ NOT NULL,
+    end_time TIMESTAMPTZ NOT NULL,
+    CONSTRAINT start_before_end CHECK (start_time < end_time),
+    CONSTRAINT start_in_future CHECK (start_time >= now()),
+    CONSTRAINT reservation_overlap_excl EXCLUDE USING GIST (
+        room_id WITH =,
+        tstzrange(start_time, end_time) WITH &&
+    )
+);
+```
+
+I mean when time goes by and the start_time is not in the future anymore, is that constraint basically violated in the persisted data?
+
+**Junie (ask mode)**
+
+Search in project "start_in_future
+
+The term "start_in_future" was found in multiple locations across the project, including code files, documentation, and database schema definitions.
+
+The start_in_future constraint as defined in your schema is not a good constraint for a production database. While it correctly prevents creating reservations in the past at the moment of insertion, it creates significant long-term issues for your data.
+
+1. The "Temporal Drift" Problem
+   
+The core issue is that now() is a non-deterministic (volatile/stable) function. As time passes, the "future" becomes the "past."
+
+- Insert phase: When you insert a reservation for tomorrow, start_time >= now() is TRUE.
+- Post-start phase: Once tomorrow arrives and the reservation has started, that same row now technically violates the constraint because start_time is no longer >= now().
+
+2. Consequence: Failed Updates
+   
+PostgreSQL re-evaluates CHECK constraints whenever a row is updated. If you need to update a past or ongoing reservation (e.g., to change a description, mark it as "attended", or update a related field), the update will fail. PostgreSQL will see that start_time >= now() is now FALSE and block the change, even if you weren't trying to change the time.
+
+3. Consequence: Broken Backups and Restores
+   
+This is perhaps the most dangerous side effect. When you use pg_dump and then pg_restore (or any tool that recreates the schema and re-inserts data):
+- The restore process will attempt to insert all historical reservations.
+- Any reservation whose start_time is now in the past will fail the check.
+- Your restore will fail, potentially leaving you with a broken database recovery process.
+
+4. The Correct Approach
+   
+Database constraints should ideally be immutable (based only on the data in the row, not on the moving wall of time).
+- Application Level (Recommended): Use validation in your Java/Spring code. You already have @Future annotations (as seen in your GlobalExceptionHandler), which is the right place for "point-of-entry" validation.
+- Database Triggers (If strictly necessary): If you must have a database-level check, use a BEFORE INSERT trigger. Triggers only run when you tell them to, so you can ensure the check only happens during creation, not during later updates or restores.
+- Business Logic: If a reservation cannot be modified once it has started, that should be handled by business logic in your Service layer, not by a hard CHECK constraint that makes the row physically un-updatable.
+   
+Summary
+   
+You should remove the following line from your schema.sql
+
+```sql
+CONSTRAINT start_in_future CHECK (start_time >= now())
+```
+
+Rely on your application-level @Future validation instead to ensure new reservations are made for the future.
