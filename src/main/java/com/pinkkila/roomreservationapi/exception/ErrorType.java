@@ -8,8 +8,6 @@ public enum ErrorType {
     ROOM_NOT_FOUND("room-not-found", "Room Not Found"),
     RESERVATION_NOT_FOUND("reservation-not-found", "Reservation Not Found"),
     OVERLAPPING_RESERVATION("overlapping-reservation", "Overlapping Reservation"),
-    RESERVATION_IN_PAST("reservation-in-past", "Reservation in Past"),
-    INVALID_RESERVATION_TIME("invalid-reservation-time", "Invalid Reservation Time"),
     RESERVATION_ERROR("reservation-error", "Reservation Error"),
     INVALID_REQUEST_BODY("invalid-request-body", "Invalid Request Body"),
     INVALID_REQUEST_PARAMETERS("invalid-request-parameters", "Invalid Request Parameters"),

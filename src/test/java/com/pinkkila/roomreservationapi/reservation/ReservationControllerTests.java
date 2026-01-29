@@ -1,5 +1,6 @@
 package com.pinkkila.roomreservationapi.reservation;
 
+import com.pinkkila.roomreservationapi.exception.ErrorType;
 import com.pinkkila.roomreservationapi.exception.GlobalExceptionHandler;
 import com.pinkkila.roomreservationapi.reservation.exception.ReservationNotFoundException;
 import com.pinkkila.roomreservationapi.room.exception.RoomNotFoundException;
@@ -9,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -100,13 +100,14 @@ class ReservationControllerTests {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestJson))
                     .andExpect(status().isConflict())
-                    .andExpect(jsonPath("$.title").value("Overlapping Reservation"))
+                    .andExpect(jsonPath("$.type").value(ErrorType.OVERLAPPING_RESERVATION.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.OVERLAPPING_RESERVATION.getTitle()))
                     .andExpect(jsonPath("$.detail").value("The room is already reserved for the requested time period."));
         }
         
         @Test
-        @DisplayName("Reservation with end time before start time should return 400")
-        void createReservation_EndTimeBeforeStartTime_Returns400() throws Exception {
+        @DisplayName("Reservation with end time before start time should return 400 with field errors")
+        void createReservation_EndTimeBeforeStartTime_Returns400WithErrors() throws Exception {
             String invalidJson = """
                     {
                       "roomId": 1,
@@ -119,12 +120,15 @@ class ReservationControllerTests {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(invalidJson))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Request Body"));
+                    .andExpect(jsonPath("$.type").value(ErrorType.INVALID_REQUEST_BODY.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_BODY.getTitle()))
+                    .andExpect(jsonPath("$.detail").value("The data provided in the request body is invalid."))
+                    .andExpect(jsonPath("$.errors.invalidField").value("Start time must be before end time"));
         }
         
         @Test
-        @DisplayName("Reservation with start and end time in past should return 400")
-        void createReservation_StartTimeEndTimeInPast_Returns400() throws Exception {
+        @DisplayName("Reservation with start and end time in past should return 400 with field errors")
+        void createReservation_StartTimeEndTimeInPast_Returns400WithErrors() throws Exception {
             String invalidJson = """
                     {
                       "roomId": 1,
@@ -132,12 +136,17 @@ class ReservationControllerTests {
                       "endTime": "2025-02-21T17:00:00Z"
                     }
                     """;
-            
+
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(invalidJson))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Request Body"));
+                    .andExpect(jsonPath("$.type").value(ErrorType.INVALID_REQUEST_BODY.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_BODY.getTitle()))
+                    .andExpect(jsonPath("$.detail").value("The data provided in the request body is invalid."))
+                    .andExpect(jsonPath("$.errors.startTime").value("Start time must be in the future"))
+                    .andExpect(jsonPath("$.errors.endTime").value("End time must be in the future"));
+            
         }
         
         @Test
@@ -158,12 +167,13 @@ class ReservationControllerTests {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestJson))
                     .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.title").value("Room Not Found"))
+                    .andExpect(jsonPath("$.type").value(ErrorType.ROOM_NOT_FOUND.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.ROOM_NOT_FOUND.getTitle()))
                     .andExpect(jsonPath("$.detail").value("Room with ID 999 not found"));
         }
         
         @Test
-        @DisplayName("Malformed JSON should return 400 with custom errors")
+        @DisplayName("Malformed JSON should return 400")
         void createReservation_MalformedJson_Returns400WithErrors() throws Exception {
             String malformedJson = """
                     {
@@ -177,7 +187,8 @@ class ReservationControllerTests {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(malformedJson))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Request Body"))
+                    .andExpect(jsonPath("$.type").value(ErrorType.INVALID_REQUEST_BODY.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_BODY.getTitle()))
                     .andExpect(jsonPath("$.detail").value("Malformed or invalid JSON payload"));
         }
         
@@ -196,16 +207,18 @@ class ReservationControllerTests {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(invalidJson))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Request Body"))
+                    .andExpect(jsonPath("$.type").value(ErrorType.INVALID_REQUEST_BODY.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_BODY.getTitle()))
                     .andExpect(jsonPath("$.detail").value("The data provided in the request body is invalid."))
-                    .andExpect(jsonPath("$.errors.roomId").exists());
+                    .andExpect(jsonPath("$.errors.roomId").value("Room ID is required"));
         }
 
         @Test
-        @DisplayName("Data conflict during creation should return 400 Bad Request (generic error)")
-        void createReservation_DataConflict_Returns400() throws Exception {
+        @DisplayName("Unknown DbActionExecutionException should return 500")
+        void createReservation_UnknownDbActionExcecutionException_Returns500() throws Exception {
+            var dbActionExecutionException = new DbActionExecutionException(mock(DbAction.class), new RuntimeException("An internal server error occurred."));
             when(reservationService.createReservation(any(ReservationRequest.class)))
-                    .thenThrow(new DataIntegrityViolationException("Conflict"));
+                    .thenThrow(dbActionExecutionException);
 
             String requestJson = """
                     {
@@ -218,9 +231,10 @@ class ReservationControllerTests {
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestJson))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Reservation Error"))
-                    .andExpect(jsonPath("$.detail").value("Invalid data provided."));
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.type").value(ErrorType.INTERNAL_SERVER_ERROR.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.INTERNAL_SERVER_ERROR.getTitle()))
+                    .andExpect(jsonPath("$.detail").value("An internal server error occurred."));
         }
     }
 
@@ -229,8 +243,8 @@ class ReservationControllerTests {
     class GetReservations {
 
         @Test
-        @DisplayName("Should return page of reservations with default values")
-        void shouldReturnPageOfReservations() throws Exception {
+        @DisplayName("Should return 200 for page of reservations with default values")
+        void getReservations_SuccessDefault_Returns200() throws Exception {
             ReservationResponse res1 = new ReservationResponse(
                     1L, 1,
                     OffsetDateTime.parse("2026-02-21T15:00:00Z"),
@@ -244,9 +258,13 @@ class ReservationControllerTests {
             mockMvc.perform(get("/api/reservations"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].id").value(1))
+                    .andExpect(jsonPath("$.content[0].roomId").value(1))
+                    .andExpect(jsonPath("$.content[0].startTime").value("2026-02-21T15:00:00Z"))
+                    .andExpect(jsonPath("$.content[0].endTime").value("2026-02-21T16:00:00Z"))
                     .andExpect(jsonPath("$.page.totalElements").value(1))
                     .andExpect(jsonPath("$.page.size").value(20))
-                    .andExpect(jsonPath("$.page.number").value(0));
+                    .andExpect(jsonPath("$.page.number").value(0))
+                    .andExpect(jsonPath("$.page.totalPages").value(1));
 
             ArgumentCaptor<ReservationQuery> captor = ArgumentCaptor.forClass(ReservationQuery.class);
             verify(reservationService).getReservations(captor.capture());
@@ -260,14 +278,14 @@ class ReservationControllerTests {
         }
 
         @Test
-        @DisplayName("Should return reservations filtered by roomId")
-        void shouldReturnFilteredReservations() throws Exception {
+        @DisplayName("Should return 200 for reservations filtered by roomId in second page")
+        void getReservations_SuccessWithFiltes_Returns200() throws Exception {
             ReservationResponse res1 = new ReservationResponse(
                     1L, 10,
-                    OffsetDateTime.parse("2026-02-21T15:00:00Z"),
-                    OffsetDateTime.parse("2026-02-21T16:00:00Z")
+                    OffsetDateTime.parse("2026-05-21T15:00:00Z"),
+                    OffsetDateTime.parse("2026-05-21T16:00:00Z")
             );
-            Page<ReservationResponse> page = new PageImpl<>(List.of(res1));
+            Page<ReservationResponse> page = new PageImpl<>(List.of(res1), PageRequest.of(1, 10), 11);
 
             when(reservationService.getReservations(any(ReservationQuery.class)))
                     .thenReturn(page);
@@ -279,7 +297,14 @@ class ReservationControllerTests {
                             .param("sortBy", "endTime")
                             .param("sortOrder", "desc"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content[0].roomId").value(10));
+                    .andExpect(jsonPath("$.content[0].id").value(1))
+                    .andExpect(jsonPath("$.content[0].roomId").value(10))
+                    .andExpect(jsonPath("$.content[0].startTime").value("2026-05-21T15:00:00Z"))
+                    .andExpect(jsonPath("$.content[0].endTime").value("2026-05-21T16:00:00Z"))
+                    .andExpect(jsonPath("$.page.totalElements").value(11))
+                    .andExpect(jsonPath("$.page.size").value(10))
+                    .andExpect(jsonPath("$.page.number").value(1))
+                    .andExpect(jsonPath("$.page.totalPages").value(2));
 
             ArgumentCaptor<ReservationQuery> captor = ArgumentCaptor.forClass(ReservationQuery.class);
             verify(reservationService).getReservations(captor.capture());
@@ -294,50 +319,57 @@ class ReservationControllerTests {
 
         @Test
         @DisplayName("Should return 400 for invalid query parameter type")
-        void shouldReturn400ForInvalidQueryType() throws Exception {
+        void getReservation_InvalidQueryType_Returns400() throws Exception {
             mockMvc.perform(get("/api/reservations")
                             .param("roomId", "x"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Request Parameters"))
-                    .andExpect(jsonPath("$.errors.roomId").exists());
+                    .andExpect(jsonPath("$.type").value(ErrorType.INVALID_REQUEST_PARAMETERS.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_PARAMETERS.getTitle()))
+                    .andExpect(jsonPath("$.detail").value("One or more request parameters provided in the URL are invalid."))
+                    .andExpect(jsonPath("$.errors.roomId").value("Invalid value"));
         }
 
         @Test
         @DisplayName("Should return 400 for invalid query parameter values")
-        void shouldReturn400ForInvalidQueryValues() throws Exception {
+        void getReservations_InvalidQueryValues_Returns400() throws Exception {
             mockMvc.perform(get("/api/reservations")
                             .param("page", "-1")
                             .param("size", "0")
                             .param("sortOrder", "invalid")
                             .param("roomId", "-1"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Request Parameters"))
-                    .andExpect(jsonPath("$.errors.page").exists())
-                    .andExpect(jsonPath("$.errors.size").exists())
-                    .andExpect(jsonPath("$.errors.sortOrder").exists())
-                    .andExpect(jsonPath("$.errors.roomId").exists());
+                    .andExpect(jsonPath("$.type").value(ErrorType.INVALID_REQUEST_PARAMETERS.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_PARAMETERS.getTitle()))
+                    .andExpect(jsonPath("$.detail").value("One or more request parameters provided in the URL are invalid."))
+                    .andExpect(jsonPath("$.errors.page").value("must be greater than or equal to 0"))
+                    .andExpect(jsonPath("$.errors.size").value("must be greater than or equal to 1"))
+                    .andExpect(jsonPath("$.errors.sortOrder").value("Sort order must be 'asc' or 'desc'"))
+                    .andExpect(jsonPath("$.errors.roomId").value("must be greater than 0"));
         }
 
         @Test
         @DisplayName("Should return 400 when sortBy field is invalid")
-        void shouldReturn400WhenSortByInvalid() throws Exception {
+        void getReservations_SortByInvalid_Returns400() throws Exception {
             mockMvc.perform(get("/api/reservations")
                             .param("sortBy", "invalidField"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Request Parameters"))
-                    .andExpect(jsonPath("$.errors.sortBy").exists());
+                    .andExpect(jsonPath("$.type").value(ErrorType.INVALID_REQUEST_PARAMETERS.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_PARAMETERS.getTitle()))
+                    .andExpect(jsonPath("$.detail").value("One or more request parameters provided in the URL are invalid."))
+                    .andExpect(jsonPath("$.errors.sortBy").value("Invalid sort field. Allowed fields are: [id, startTime, endTime, roomId]"));
         }
 
         @Test
         @DisplayName("Should return 404 when filtering by non-existent roomId")
-        void shouldReturn404WhenRoomNotFound() throws Exception {
+        void getReservations_RoomNotFound_Returns404() throws Exception {
             when(reservationService.getReservations(any(ReservationQuery.class)))
                     .thenThrow(new RoomNotFoundException(999));
 
             mockMvc.perform(get("/api/reservations")
                             .param("roomId", "999"))
                     .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.title").value("Room Not Found"))
+                    .andExpect(jsonPath("$.type").value(ErrorType.ROOM_NOT_FOUND.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.ROOM_NOT_FOUND.getTitle()))
                     .andExpect(jsonPath("$.detail").value("Room with ID 999 not found"));
         }
     }
@@ -348,7 +380,7 @@ class ReservationControllerTests {
 
         @Test
         @DisplayName("Should return 204 No Content on successful deletion")
-        void shouldReturn204OnSuccess() throws Exception {
+        void deleteReservation_Success_Returns204() throws Exception {
             mockMvc.perform(delete("/api/reservations/1"))
                     .andExpect(status().isNoContent());
 
@@ -357,31 +389,34 @@ class ReservationControllerTests {
 
         @Test
         @DisplayName("Should return 404 Not Found when reservation does not exist")
-        void shouldReturn404WhenNotFound() throws Exception {
+        void deleteReservation_ReservationNotFound_Returns404() throws Exception {
             doThrow(new ReservationNotFoundException(99L))
                     .when(reservationService).deleteReservation(99L);
 
             mockMvc.perform(delete("/api/reservations/99"))
                     .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.title").value("Reservation Not Found"))
+                    .andExpect(jsonPath("$.type").value(ErrorType.RESERVATION_NOT_FOUND.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.RESERVATION_NOT_FOUND.getTitle()))
                     .andExpect(jsonPath("$.detail").value("Reservation with ID 99 not found"));
         }
 
         @Test
         @DisplayName("Should return 400 Bad Request when ID is not a number")
-        void shouldReturn400WhenIdNotNumeric() throws Exception {
+        void deleteReservation_IdNotNumeric_Returns400() throws Exception {
             mockMvc.perform(delete("/api/reservations/abc"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Path Parameter"))
+                    .andExpect(jsonPath("$.type").value(ErrorType.INVALID_PATH_PARAMETER.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.INVALID_PATH_PARAMETER.getTitle()))
                     .andExpect(jsonPath("$.detail").value("One or more path parameters are invalid."));
         }
 
         @Test
         @DisplayName("Should return 400 Bad Request when ID is not positive")
-        void shouldReturn400WhenIdNotPositive() throws Exception {
+        void deleteReservation_IdNotPositive_Returns400() throws Exception {
             mockMvc.perform(delete("/api/reservations/0"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.title").value("Invalid Path Parameter"))
+                    .andExpect(jsonPath("$.type").value(ErrorType.INVALID_PATH_PARAMETER.toUrn().toString()))
+                    .andExpect(jsonPath("$.title").value(ErrorType.INVALID_PATH_PARAMETER.getTitle()))
                     .andExpect(jsonPath("$.detail").value("One or more path parameters are invalid."));
         }
     }

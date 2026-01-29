@@ -25,9 +25,9 @@ POST http://localhost:8080/api/reservations
 Content-Type: application/json
 
 {
-  "roomId": 1,
-  "startTime": "2027-01-26T19:00:00+02:00",
-  "endTime":   "2027-01-26T18:00:00+02:00"
+  "roomId": "",
+  "startTime": "2027-02-26T19:00:00+02:00",
+  "endTime":   "2027-02-26T18:00:00+02:00"
 }
 
 
