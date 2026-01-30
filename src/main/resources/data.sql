@@ -1,9 +1,9 @@
 TRUNCATE TABLE reservation RESTART IDENTITY CASCADE;
 TRUNCATE TABLE room RESTART IDENTITY CASCADE;
 
-INSERT INTO room (name) VALUES ('Conference Room A');
-INSERT INTO room (name) VALUES ('Meeting Room B');
-INSERT INTO room (name) VALUES ('Huddle Space C');
+INSERT INTO room (id, name) VALUES (1,'Conference Room A');
+INSERT INTO room (id, name) VALUES (2, 'Meeting Room B');
+INSERT INTO room (id, name) VALUES (3,'Huddle Space C');
 
 -- 25 reservations for room 1 (5 days * 5 slots)
 INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '1 day 08:00:00', CURRENT_DATE + INTERVAL '1 day 09:00:00');
