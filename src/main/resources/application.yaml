@@ -11,7 +11,7 @@ spring:
   web:
     resources:
       add-mappings: false
-logging:
-  level:
-    org.springframework.web: trace
+#logging:
+#  level:
+#    org.springframework.web: trace
 #    org.springframework.data: trace

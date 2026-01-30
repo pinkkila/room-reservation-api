@@ -6074,5 +6074,51 @@ All tests in ReservationFullIntegrationTests.java are passing.
 
 ---
 
+**Prompti 62**
 
+Take a close look at the whole repo. Then create a REST API documentation and 'How to run' (Java and Docker) to the README.md file. Write everything in Finnish, except technical English words that are commonly used in Finnish as English.
+
+
+**Junie**
+
+Update on task progress
+
+Olen tarkistanut ReservationController.java -tiedoston ja tunnistanut kolme pääendpointia: POST /api/reservations (varauksen luonti), GET /api/reservations (varausten haku paginoinnilla ja suodatuksella) ja DELETE /api/reservations/{reservationId} (varauksen poisto). Seuraavaksi tarkistan ReservationRequest-, ReservationResponse- ja ReservationQuery-luokat ymmärtääkseni datarakenteet paremmin. Tutkin myös Docker-tiedostot ja application.yaml-asetukset "How to run" -ohjeita varten.
+
+Update on task progress
+
+Olen kerännyt tarvittavat tiedot dokumentaatiota varten:
+- Endpointit: POST /api/reservations, GET /api/reservations, DELETE /api/reservations/{id}
+- DTO-rakenteet (ReservationRequest, ReservationResponse, ReservationQuery)
+- Virhekäsittely (ProblemDetails, RFC 9457)
+- Ajaminen: Java (./gradlew bootRun), Docker (docker-compose -f compose.demo.yaml up)
+- Tietokanta: PostgreSQL, alustetaan automaattisesti schema.sql ja data.sql tiedostoilla.
+
+Seuraavaksi alan kirjoittaa dokumentaatiota README.md-tiedostoon suomeksi.
+
+README.md +97 -1
+
+README-tiedostoon on lisätty REST API -dokumentaatio, joka kuvaa huonevarausten hakemisen, luomisen ja poistamisen rajapinnat sekä ohjeet sovelluksen ajamiseen paikallisesti ja Dockerilla.
+
+Update on task progress
+
+README.md on päivitetty suomenkielisellä REST API -dokumentaatiolla ja "How to run" -ohjeilla. Dokumentaatio kattaa varausten haun, luomisen ja poistamisen sekä esimerkit pyynnöistä ja vastauksista. Käyttöohjeet sisältävät ohjeet sekä Java-pohjaiseen ajoon että Docker-pohjaiseen ajoon. Kaikki on kirjoitettu suomeksi, lukuun ottamatta yleisiä teknisiä englanninkielisiä termejä.
+
+Changed Files
+
+README.md +97 -1
+
+Päivitin README.md-tiedoston sisältämään kattavan REST API -dokumentaation ja käyttöohjeet (How to run) suomeksi.
+Tehdyt muutokset:
+- Lisätty REST API Dokumentaatio:
+  - GET /api/reservations: Varausten haku suodatuksella, paginoinnilla ja lajittelulla. Sisältää kuvauksen query-parametreista ja vastausmuodosta.
+  - POST /api/reservations: Uuden varauksen luominen. Sisältää esimerkin pyynnöstä ja eri vastauskoodeista (201, 400, 404, 409).
+  - DELETE /api/reservations/{id}: Varauksen poistaminen.
+
+- Lisätty Käyttöohjeet (How to run):
+  - Esivaatimukset: Java 21 ja Docker.
+  - Ajaminen paikallisesti (Java): Ohjeet tietokannan käynnistämiseen Dockerilla ja sovelluksen ajamiseen Gradlen avulla.
+  - Ajaminen Dockerilla: Ohjeet koko ympäristön käynnistämiseen compose.demo.yaml-tiedoston avulla.
+
+Dokumentaatio on kirjoitettu suomeksi noudattaen annettuja ohjeita teknisten termien käytöstä.
 
