@@ -1,6 +1,5 @@
 package com.pinkkila.roomreservationapi.exception;
 
-
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -10,10 +9,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * Represents the database constraints defined in the schema.
- * Maps PostgreSQL constraint names to application-level constants.
- */
 @Getter
 @RequiredArgsConstructor
 public enum DatabaseConstraint {
@@ -26,7 +21,6 @@ public enum DatabaseConstraint {
     private static final Map<String, DatabaseConstraint> LOOKUP = Stream.of(values())
             .collect(Collectors.toUnmodifiableMap(DatabaseConstraint::getConstraintName, Function.identity()));
     
-
     public static Optional<DatabaseConstraint> fromName(String name) {
         return Optional.ofNullable(LOOKUP.get(name));
     }
