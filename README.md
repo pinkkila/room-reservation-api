@@ -41,14 +41,14 @@ Sovellus tarjoaa rajapinnan huonevarausten hallintaan. Rajapinta noudattaa REST-
 
 Hakee listan varauksista. Tukee suodatusta huoneen perusteella, paginointia ja lajittelua.
 
-**Query-parametrit:**
+**Query Parameters:**
 - `roomId` (valinnainen, Integer): Suodata varaukset huoneen tunnuksen perusteella.
 - `page` (valinnainen, oletus 0): Sivun numero.
 - `size` (valinnainen, oletus 20, max 100): Sivun koko.
 - `sortBy` (valinnainen, oletus `startTime`): Lajittelukenttä (`id`, `startTime`, `endTime`, `roomId`).
 - `sortOrder` (valinnainen, oletus `asc`): Lajittelujärjestys (`asc`, `desc`).
 
-**Vastaus:**
+**Response:**
 `200 OK` - Palauttaa paginoidun listan varauksista.
 
 ```json
@@ -75,7 +75,7 @@ Hakee listan varauksista. Tukee suodatusta huoneen perusteella, paginointia ja l
 
 Luo uuden huonevarauksen.
 
-**Pyyntö (Body):**
+**Request (Body):**
 ```json
 {
   "roomId": 2,
@@ -84,7 +84,7 @@ Luo uuden huonevarauksen.
 }
 ```
 
-**Vastaus:**
+**Response:**
 - `201 Created`: Varauksen luonti onnistui. Palauttaa luodun varauksen tiedot.
 - `400 Bad Request`: Virheellinen syöte (esim. menneisyydessä oleva aika tai lopetusaika ennen aloitusaikaa).
 - `404 Not Found`: Huonetta ei löydy.
@@ -95,10 +95,10 @@ Luo uuden huonevarauksen.
 
 Poistaa olemassa olevan varauksen.
 
-**Polkuparametrit:**
+**Path Parameters:**
 - `reservationId` (Long): Poistettavan varauksen tunnus.
 
-**Vastaus:**
+**Response:**
 - `204 No Content`: Poisto onnistui.
 - `404 Not Found`: Varausta ei löytynyt annetulla tunnuksella.
 
@@ -112,10 +112,10 @@ Poistaa olemassa olevan varauksen.
 
 Käynnistä sovellus ja tietokanta komennolla:
 
-1. Aja sovellus Gradlen avulla:
-   ```bash
-   ./gradlew bootRun
-   ```
+```bash
+./gradlew bootRun
+```
+
 Spring Bootin Docker Compose käynnistää automaattisesti tietokannan Docker-kontissa. Sovellus käynnistyy oletuksena osoitteeseen `http://localhost:8080`.
 
 ### Ajaminen Dockerilla (koneella ei tarvitse olla Javaa asennettuna)
@@ -129,7 +129,7 @@ docker-compose -f compose.demo.yaml up --build
 Tämä komento rakentaa sovelluksen Docker-imagen ja käynnistää sekä tietokannan että sovelluksen. Sovellus on saatavilla osoitteessa `http://localhost:8080`.
 
 
-**Esimerkkinä voi tarkastella kaikkia varauksia huoneessa 1:** 
+**Seuraava esimerkki hakee kaikki huoneen 1 varaukset:** 
 
 ```
 localhost:8080/api/reservations?roomId=1
