@@ -38,13 +38,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(RoomNotFoundException.class)
     public ProblemDetail handleRoomNotFoundException(RoomNotFoundException ex) {
         log.warn("Room not found: {}", ex.getMessage());
-        return createProblemDetail(HttpStatus.NOT_FOUND, ex.getMessage(), ErrorType.ROOM_NOT_FOUND);
+        return createProblemDetail(
+                HttpStatus.NOT_FOUND,
+                ex.getMessage(),
+                ErrorType.ROOM_NOT_FOUND
+        );
     }
     
     @ExceptionHandler(ReservationNotFoundException.class)
     public ProblemDetail handleReservationNotFoundException(ReservationNotFoundException ex) {
         log.warn("Reservation not found: {}", ex.getMessage());
-        return createProblemDetail(HttpStatus.NOT_FOUND, ex.getMessage(), ErrorType.RESERVATION_NOT_FOUND);
+        return createProblemDetail(
+                HttpStatus.NOT_FOUND,
+                ex.getMessage(),
+                ErrorType.RESERVATION_NOT_FOUND
+        );
     }
     
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -52,7 +60,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return resolveConstraintError(ex)
                 .orElseGet(() -> {
                     log.error("Unexpected data integrity violation", ex);
-                    return createProblemDetail(HttpStatus.BAD_REQUEST, "Invalid data provided.", ErrorType.RESERVATION_ERROR);
+                    return createProblemDetail(
+                            HttpStatus.BAD_REQUEST,
+                            "Invalid data provided.",
+                            ErrorType.RESERVATION_ERROR
+                    );
                 });
     }
     
@@ -65,7 +77,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return resolveConstraintError(ex)
                 .orElseGet(() -> {
                     log.error("Database action failed due to unexpected error", ex);
-                    return createProblemDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An internal server error occurred.", ErrorType.INTERNAL_SERVER_ERROR);
+                    return createProblemDetail(
+                            HttpStatus.INTERNAL_SERVER_ERROR,
+                            "An internal server error occurred.",
+                            ErrorType.INTERNAL_SERVER_ERROR
+                    );
                 });
     }
     
@@ -86,21 +102,48 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 ProblemDetail problemDetail = DatabaseConstraint.fromName(constraintName)
                         .map(constraint -> switch (constraint) {
                             case RESERVATION_OVERLAP -> {
-                                log.warn("Database constraint violation: '{}' - overlapping reservation occurred.", constraint.getConstraintName());
-                                yield createProblemDetail(HttpStatus.CONFLICT, "The room is already reserved for the requested time period.", ErrorType.OVERLAPPING_RESERVATION);
+                                log.warn(
+                                        "Database constraint violation: '{}' - overlapping reservation occurred.",
+                                        constraint.getConstraintName()
+                                );
+                                yield createProblemDetail(
+                                        HttpStatus.CONFLICT,
+                                        "The room is already reserved for the requested time period.",
+                                        ErrorType.OVERLAPPING_RESERVATION
+                                );
                             }
                             case START_BEFORE_END -> {
-                                log.error("Validation bypass detected: '{}' constraint violated. Check @ValidReservationRange logic.", constraint.getConstraintName(), ex);
-                                yield createProblemDetail(HttpStatus.BAD_REQUEST, "The start time must be before the end time.", ErrorType.INVALID_REQUEST_BODY);
+                                log.error(
+                                        "Validation bypass detected: '{}' constraint violated. Check @ValidReservationRange logic.",
+                                        constraint.getConstraintName(),
+                                        ex
+                                );
+                                yield createProblemDetail(
+                                        HttpStatus.BAD_REQUEST,
+                                        "The start time must be before the end time.",
+                                        ErrorType.INVALID_REQUEST_BODY
+                                );
                             }
                             case ROOM_ID_FOREIGN_KEY -> {
-                                log.error("Validation bypass detected: '{}' constraint violated. Check existence check in ReservationService.", constraint.getConstraintName(), ex);
-                                yield createProblemDetail(HttpStatus.NOT_FOUND, "The requested room does not exist.", ErrorType.ROOM_NOT_FOUND);
+                                log.error(
+                                        "Validation bypass detected: '{}' constraint violated. Check existence check in ReservationService.",
+                                        constraint.getConstraintName(),
+                                        ex
+                                );
+                                yield createProblemDetail(
+                                        HttpStatus.NOT_FOUND,
+                                        "The requested room does not exist.",
+                                        ErrorType.ROOM_NOT_FOUND
+                                );
                             }
                         })
                         .orElseGet(() -> {
                             log.error("Unexpected database constraint violation: {}", constraintName, ex);
-                            return createProblemDetail(HttpStatus.BAD_REQUEST, "Invalid data provided.", ErrorType.RESERVATION_ERROR);
+                            return createProblemDetail(
+                                    HttpStatus.BAD_REQUEST,
+                                    "Invalid data provided.",
+                                    ErrorType.RESERVATION_ERROR
+                            );
                         });
                 
                 return Optional.of(problemDetail);
@@ -113,7 +156,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ProblemDetail handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
         log.warn("Method argument type mismatch: {}", ex.getMessage());
-        return createProblemDetail(HttpStatus.BAD_REQUEST, "One or more path parameters are invalid.", ErrorType.INVALID_PATH_PARAMETER);
+        return createProblemDetail(
+                HttpStatus.BAD_REQUEST,
+                "One or more path parameters are invalid.",
+                ErrorType.INVALID_PATH_PARAMETER
+        );
     }
     
     @Override
@@ -164,7 +211,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             @NonNull WebRequest request) {
         log.warn("Failed to read request: Malformed JSON or invalid format");
         
-        ProblemDetail problemDetail = createProblemDetail(HttpStatus.valueOf(status.value()), "Malformed or invalid JSON payload", ErrorType.INVALID_REQUEST_BODY);
+        ProblemDetail problemDetail = createProblemDetail(
+                HttpStatus.valueOf(status.value()),
+                "Malformed or invalid JSON payload",
+                ErrorType.INVALID_REQUEST_BODY
+        );
         return createResponseEntity(problemDetail, headers, status, request);
     }
     
@@ -184,14 +235,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         
         log.warn("Method validation failed: fields={}", fields);
         
-        ProblemDetail problemDetail = createProblemDetail(HttpStatus.valueOf(status.value()), "One or more path parameters are invalid.", ErrorType.INVALID_PATH_PARAMETER);
+        ProblemDetail problemDetail = createProblemDetail(HttpStatus.valueOf(
+                status.value()),
+                "One or more path parameters are invalid.",
+                ErrorType.INVALID_PATH_PARAMETER
+        );
         return createResponseEntity(problemDetail, headers, status, request);
     }
     
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpectedException(Exception ex) {
         log.error("An unexpected error occurred", ex);
-        return createProblemDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An internal server error occurred.", ErrorType.INTERNAL_SERVER_ERROR);
+        return createProblemDetail(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "An internal server error occurred.",
+                ErrorType.INTERNAL_SERVER_ERROR
+        );
     }
     
     
