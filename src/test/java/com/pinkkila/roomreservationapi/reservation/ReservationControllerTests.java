@@ -100,7 +100,8 @@ class ReservationControllerTests {
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.type").value(ErrorType.OVERLAPPING_RESERVATION.toUrn().toString()))
                     .andExpect(jsonPath("$.title").value(ErrorType.OVERLAPPING_RESERVATION.getTitle()))
-                    .andExpect(jsonPath("$.detail").value("The room is already reserved for the requested time period."));
+                    .andExpect(jsonPath("$.detail").value("The room is already reserved for the requested time period."))
+                    .andExpect(jsonPath("$.errors").doesNotExist());
         }
         
         @Test
@@ -128,7 +129,8 @@ class ReservationControllerTests {
                     .andExpect(jsonPath("$.type").value(ErrorType.INVALID_REQUEST_BODY.toUrn().toString()))
                     .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_BODY.getTitle()))
                     .andExpect(jsonPath("$.detail").value("The data provided in the request body is invalid."))
-                    .andExpect(jsonPath("$.errors.invalidField").value("Start time must be before end time"));
+                    .andExpect(jsonPath("$.errors.invalidField").value("Start time must be before end time"))
+                    .andExpect(jsonPath("$.errors.size()").value(1));
         }
         
         @Test
@@ -156,7 +158,8 @@ class ReservationControllerTests {
                     .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_BODY.getTitle()))
                     .andExpect(jsonPath("$.detail").value("The data provided in the request body is invalid."))
                     .andExpect(jsonPath("$.errors.startTime").value("Start time must be in the future"))
-                    .andExpect(jsonPath("$.errors.endTime").value("End time must be in the future"));
+                    .andExpect(jsonPath("$.errors.endTime").value("End time must be in the future"))
+                    .andExpect(jsonPath("$.errors.size()").value(2));
             
         }
         
@@ -181,7 +184,8 @@ class ReservationControllerTests {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.type").value(ErrorType.ROOM_NOT_FOUND.toUrn().toString()))
                     .andExpect(jsonPath("$.title").value(ErrorType.ROOM_NOT_FOUND.getTitle()))
-                    .andExpect(jsonPath("$.detail").value("Room with ID 999 not found"));
+                    .andExpect(jsonPath("$.detail").value("Room with ID 999 not found"))
+                    .andExpect(jsonPath("$.errors").doesNotExist());
         }
         
         @Test
@@ -202,7 +206,8 @@ class ReservationControllerTests {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.type").value(ErrorType.INVALID_REQUEST_BODY.toUrn().toString()))
                     .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_BODY.getTitle()))
-                    .andExpect(jsonPath("$.detail").value("Malformed or invalid JSON payload"));
+                    .andExpect(jsonPath("$.detail").value("Malformed or invalid JSON payload"))
+                    .andExpect(jsonPath("$.errors").doesNotExist());
         }
         
         @Test
@@ -211,7 +216,7 @@ class ReservationControllerTests {
             var startTime = OffsetDateTime.now().plusDays(1).withNano(0);
             var request = ReservationTestData.anOneHourReservation()
                     .withStartTime(startTime)
-                    .withEndTime(startTime.minusHours(1))
+                    .withEndTime(startTime.plusHours(1))
                     .asRequest();
 
             String invalidJson = """
@@ -229,7 +234,8 @@ class ReservationControllerTests {
                     .andExpect(jsonPath("$.type").value(ErrorType.INVALID_REQUEST_BODY.toUrn().toString()))
                     .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_BODY.getTitle()))
                     .andExpect(jsonPath("$.detail").value("The data provided in the request body is invalid."))
-                    .andExpect(jsonPath("$.errors.roomId").value("Room ID is required"));
+                    .andExpect(jsonPath("$.errors.roomId").value("Room ID is required"))
+                    .andExpect(jsonPath("$.errors.size()").value(1));
         }
 
         @Test
@@ -254,7 +260,8 @@ class ReservationControllerTests {
                     .andExpect(status().isInternalServerError())
                     .andExpect(jsonPath("$.type").value(ErrorType.INTERNAL_SERVER_ERROR.toUrn().toString()))
                     .andExpect(jsonPath("$.title").value(ErrorType.INTERNAL_SERVER_ERROR.getTitle()))
-                    .andExpect(jsonPath("$.detail").value("An internal server error occurred."));
+                    .andExpect(jsonPath("$.detail").value("An internal server error occurred."))
+                    .andExpect(jsonPath("$.errors").doesNotExist());
         }
     }
 
@@ -342,7 +349,8 @@ class ReservationControllerTests {
                     .andExpect(jsonPath("$.type").value(ErrorType.INVALID_REQUEST_PARAMETERS.toUrn().toString()))
                     .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_PARAMETERS.getTitle()))
                     .andExpect(jsonPath("$.detail").value("One or more request parameters provided in the URL are invalid."))
-                    .andExpect(jsonPath("$.errors.roomId").value("Invalid value"));
+                    .andExpect(jsonPath("$.errors.roomId").value("Invalid value"))
+                    .andExpect(jsonPath("$.errors.size()").value(1));
         }
 
         @Test
@@ -360,7 +368,8 @@ class ReservationControllerTests {
                     .andExpect(jsonPath("$.errors.page").value("must be greater than or equal to 0"))
                     .andExpect(jsonPath("$.errors.size").value("must be greater than or equal to 1"))
                     .andExpect(jsonPath("$.errors.sortOrder").value("Sort order must be 'asc' or 'desc'"))
-                    .andExpect(jsonPath("$.errors.roomId").value("must be greater than 0"));
+                    .andExpect(jsonPath("$.errors.roomId").value("must be greater than 0"))
+                    .andExpect(jsonPath("$.errors.size()").value(4));
         }
 
         @Test
@@ -372,7 +381,8 @@ class ReservationControllerTests {
                     .andExpect(jsonPath("$.type").value(ErrorType.INVALID_REQUEST_PARAMETERS.toUrn().toString()))
                     .andExpect(jsonPath("$.title").value(ErrorType.INVALID_REQUEST_PARAMETERS.getTitle()))
                     .andExpect(jsonPath("$.detail").value("One or more request parameters provided in the URL are invalid."))
-                    .andExpect(jsonPath("$.errors.sortBy").value("Invalid sort field. Allowed fields are: [id, startTime, endTime, roomId]"));
+                    .andExpect(jsonPath("$.errors.sortBy").value("Invalid sort field. Allowed fields are: [id, startTime, endTime, roomId]"))
+                    .andExpect(jsonPath("$.errors.size()").value(1));
         }
 
         @Test
@@ -386,7 +396,8 @@ class ReservationControllerTests {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.type").value(ErrorType.ROOM_NOT_FOUND.toUrn().toString()))
                     .andExpect(jsonPath("$.title").value(ErrorType.ROOM_NOT_FOUND.getTitle()))
-                    .andExpect(jsonPath("$.detail").value("Room with ID 999 not found"));
+                    .andExpect(jsonPath("$.detail").value("Room with ID 999 not found"))
+                    .andExpect(jsonPath("$.errors").doesNotExist());
         }
     }
 
@@ -413,7 +424,8 @@ class ReservationControllerTests {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.type").value(ErrorType.RESERVATION_NOT_FOUND.toUrn().toString()))
                     .andExpect(jsonPath("$.title").value(ErrorType.RESERVATION_NOT_FOUND.getTitle()))
-                    .andExpect(jsonPath("$.detail").value("Reservation with ID 99 not found"));
+                    .andExpect(jsonPath("$.detail").value("Reservation with ID 99 not found"))
+                    .andExpect(jsonPath("$.errors").doesNotExist());
         }
 
         @Test
@@ -423,7 +435,8 @@ class ReservationControllerTests {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.type").value(ErrorType.INVALID_PATH_PARAMETER.toUrn().toString()))
                     .andExpect(jsonPath("$.title").value(ErrorType.INVALID_PATH_PARAMETER.getTitle()))
-                    .andExpect(jsonPath("$.detail").value("One or more path parameters are invalid."));
+                    .andExpect(jsonPath("$.detail").value("One or more path parameters are invalid."))
+                    .andExpect(jsonPath("$.errors").doesNotExist());
         }
 
         @Test
@@ -433,7 +446,8 @@ class ReservationControllerTests {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.type").value(ErrorType.INVALID_PATH_PARAMETER.toUrn().toString()))
                     .andExpect(jsonPath("$.title").value(ErrorType.INVALID_PATH_PARAMETER.getTitle()))
-                    .andExpect(jsonPath("$.detail").value("One or more path parameters are invalid."));
+                    .andExpect(jsonPath("$.detail").value("One or more path parameters are invalid."))
+                    .andExpect(jsonPath("$.errors").doesNotExist());
         }
     }
 }
