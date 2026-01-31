@@ -1,3 +1,5 @@
+SET TIME ZONE 'UTC';
+
 TRUNCATE TABLE reservation RESTART IDENTITY CASCADE;
 TRUNCATE TABLE room RESTART IDENTITY CASCADE;
 
@@ -6,43 +8,45 @@ INSERT INTO room (id, name) VALUES (2, 'Meeting Room B');
 INSERT INTO room (id, name) VALUES (3,'Huddle Space C');
 
 -- 25 reservations for room 1 (5 days * 5 slots)
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '1 day 08:00:00', CURRENT_DATE + INTERVAL '1 day 09:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '1 day 10:00:00', CURRENT_DATE + INTERVAL '1 day 11:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '1 day 12:00:00', CURRENT_DATE + INTERVAL '1 day 13:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '1 day 14:00:00', CURRENT_DATE + INTERVAL '1 day 15:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '1 day 16:00:00', CURRENT_DATE + INTERVAL '1 day 17:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '2 days 08:00:00', CURRENT_DATE + INTERVAL '2 days 09:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '2 days 10:00:00', CURRENT_DATE + INTERVAL '2 days 11:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '2 days 12:00:00', CURRENT_DATE + INTERVAL '2 days 13:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '2 days 14:00:00', CURRENT_DATE + INTERVAL '2 days 15:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '2 days 16:00:00', CURRENT_DATE + INTERVAL '2 days 17:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '3 days 08:00:00', CURRENT_DATE + INTERVAL '3 days 09:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '3 days 10:00:00', CURRENT_DATE + INTERVAL '3 days 11:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '3 days 12:00:00', CURRENT_DATE + INTERVAL '3 days 13:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '3 days 14:00:00', CURRENT_DATE + INTERVAL '3 days 15:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '3 days 16:00:00', CURRENT_DATE + INTERVAL '3 days 17:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '4 days 08:00:00', CURRENT_DATE + INTERVAL '4 days 09:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '4 days 10:00:00', CURRENT_DATE + INTERVAL '4 days 11:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '4 days 12:00:00', CURRENT_DATE + INTERVAL '4 days 13:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '4 days 14:00:00', CURRENT_DATE + INTERVAL '4 days 15:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '4 days 16:00:00', CURRENT_DATE + INTERVAL '4 days 17:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '5 days 08:00:00', CURRENT_DATE + INTERVAL '5 days 09:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '5 days 10:00:00', CURRENT_DATE + INTERVAL '5 days 11:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '5 days 12:00:00', CURRENT_DATE + INTERVAL '5 days 13:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '5 days 14:00:00', CURRENT_DATE + INTERVAL '5 days 15:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '5 days 16:00:00', CURRENT_DATE + INTERVAL '5 days 17:00:00');
+INSERT INTO reservation (room_id, start_time, end_time) VALUES 
+(1, CURRENT_DATE + INTERVAL '1 day 08:00:00', CURRENT_DATE + INTERVAL '1 day 09:00:00'),
+(1, CURRENT_DATE + INTERVAL '1 day 10:00:00', CURRENT_DATE + INTERVAL '1 day 11:00:00'),
+(1, CURRENT_DATE + INTERVAL '1 day 12:00:00', CURRENT_DATE + INTERVAL '1 day 13:00:00'),
+(1, CURRENT_DATE + INTERVAL '1 day 14:00:00', CURRENT_DATE + INTERVAL '1 day 15:00:00'),
+(1, CURRENT_DATE + INTERVAL '1 day 16:00:00', CURRENT_DATE + INTERVAL '1 day 17:00:00'),
+(1, CURRENT_DATE + INTERVAL '2 days 08:00:00', CURRENT_DATE + INTERVAL '2 days 09:00:00'),
+(1, CURRENT_DATE + INTERVAL '2 days 10:00:00', CURRENT_DATE + INTERVAL '2 days 11:00:00'),
+(1, CURRENT_DATE + INTERVAL '2 days 12:00:00', CURRENT_DATE + INTERVAL '2 days 13:00:00'),
+(1, CURRENT_DATE + INTERVAL '2 days 14:00:00', CURRENT_DATE + INTERVAL '2 days 15:00:00'),
+(1, CURRENT_DATE + INTERVAL '2 days 16:00:00', CURRENT_DATE + INTERVAL '2 days 17:00:00'),
+(1, CURRENT_DATE + INTERVAL '3 days 08:00:00', CURRENT_DATE + INTERVAL '3 days 09:00:00'),
+(1, CURRENT_DATE + INTERVAL '3 days 10:00:00', CURRENT_DATE + INTERVAL '3 days 11:00:00'),
+(1, CURRENT_DATE + INTERVAL '3 days 12:00:00', CURRENT_DATE + INTERVAL '3 days 13:00:00'),
+(1, CURRENT_DATE + INTERVAL '3 days 14:00:00', CURRENT_DATE + INTERVAL '3 days 15:00:00'),
+(1, CURRENT_DATE + INTERVAL '3 days 16:00:00', CURRENT_DATE + INTERVAL '3 days 17:00:00'),
+(1, CURRENT_DATE + INTERVAL '4 days 08:00:00', CURRENT_DATE + INTERVAL '4 days 09:00:00'),
+(1, CURRENT_DATE + INTERVAL '4 days 10:00:00', CURRENT_DATE + INTERVAL '4 days 11:00:00'),
+(1, CURRENT_DATE + INTERVAL '4 days 12:00:00', CURRENT_DATE + INTERVAL '4 days 13:00:00'),
+(1, CURRENT_DATE + INTERVAL '4 days 14:00:00', CURRENT_DATE + INTERVAL '4 days 15:00:00'),
+(1, CURRENT_DATE + INTERVAL '4 days 16:00:00', CURRENT_DATE + INTERVAL '4 days 17:00:00'),
+(1, CURRENT_DATE + INTERVAL '5 days 08:00:00', CURRENT_DATE + INTERVAL '5 days 09:00:00'),
+(1, CURRENT_DATE + INTERVAL '5 days 10:00:00', CURRENT_DATE + INTERVAL '5 days 11:00:00'),
+(1, CURRENT_DATE + INTERVAL '5 days 12:00:00', CURRENT_DATE + INTERVAL '5 days 13:00:00'),
+(1, CURRENT_DATE + INTERVAL '5 days 14:00:00', CURRENT_DATE + INTERVAL '5 days 15:00:00'),
+(1, CURRENT_DATE + INTERVAL '5 days 16:00:00', CURRENT_DATE + INTERVAL '5 days 17:00:00');
 
 -- 10 reservations for room 2 (5 days * 2 slots)
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (2, CURRENT_DATE + INTERVAL '1 day 09:00:00', CURRENT_DATE + INTERVAL '1 day 10:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (2, CURRENT_DATE + INTERVAL '1 day 15:00:00', CURRENT_DATE + INTERVAL '1 day 16:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (2, CURRENT_DATE + INTERVAL '2 days 09:00:00', CURRENT_DATE + INTERVAL '2 days 10:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (2, CURRENT_DATE + INTERVAL '2 days 15:00:00', CURRENT_DATE + INTERVAL '2 days 16:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (2, CURRENT_DATE + INTERVAL '3 days 09:00:00', CURRENT_DATE + INTERVAL '3 days 10:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (2, CURRENT_DATE + INTERVAL '3 days 15:00:00', CURRENT_DATE + INTERVAL '3 days 16:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (2, CURRENT_DATE + INTERVAL '4 days 09:00:00', CURRENT_DATE + INTERVAL '4 days 10:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (2, CURRENT_DATE + INTERVAL '4 days 15:00:00', CURRENT_DATE + INTERVAL '4 days 16:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (2, CURRENT_DATE + INTERVAL '5 days 09:00:00', CURRENT_DATE + INTERVAL '5 days 10:00:00');
-INSERT INTO reservation (room_id, start_time, end_time) VALUES (2, CURRENT_DATE + INTERVAL '5 days 15:00:00', CURRENT_DATE + INTERVAL '5 days 16:00:00');
+INSERT INTO reservation (room_id, start_time, end_time) VALUES 
+(2, CURRENT_DATE + INTERVAL '1 day 09:00:00', CURRENT_DATE + INTERVAL '1 day 10:00:00'),
+(2, CURRENT_DATE + INTERVAL '1 day 15:00:00', CURRENT_DATE + INTERVAL '1 day 16:00:00'),
+(2, CURRENT_DATE + INTERVAL '2 days 09:00:00', CURRENT_DATE + INTERVAL '2 days 10:00:00'),
+(2, CURRENT_DATE + INTERVAL '2 days 15:00:00', CURRENT_DATE + INTERVAL '2 days 16:00:00'),
+(2, CURRENT_DATE + INTERVAL '3 days 09:00:00', CURRENT_DATE + INTERVAL '3 days 10:00:00'),
+(2, CURRENT_DATE + INTERVAL '3 days 15:00:00', CURRENT_DATE + INTERVAL '3 days 16:00:00'),
+(2, CURRENT_DATE + INTERVAL '4 days 09:00:00', CURRENT_DATE + INTERVAL '4 days 10:00:00'),
+(2, CURRENT_DATE + INTERVAL '4 days 15:00:00', CURRENT_DATE + INTERVAL '4 days 16:00:00'),
+(2, CURRENT_DATE + INTERVAL '5 days 09:00:00', CURRENT_DATE + INTERVAL '5 days 10:00:00'),
+(2, CURRENT_DATE + INTERVAL '5 days 15:00:00', CURRENT_DATE + INTERVAL '5 days 16:00:00');
 
 -- Ensure ID generation keeps up with deleted IDs by syncing the sequence
 SELECT setval(pg_get_serial_sequence('reservation', 'id'), coalesce(max(id), 0) + 1, false) FROM reservation;

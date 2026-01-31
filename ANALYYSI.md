@@ -151,7 +151,7 @@ Junie teki minulle tästä kuitenkin seuraavan sivuhuomautuksen (Prompti 45):
 
 ### @Validated annotaation käyttö RestController luokassa ja sen vaikutus poikkeuskäsittelyyn
 
-Junie lisäsi ReservationController luokkkaan `@Validated` annotaation ja se muutti `@Positive` annotaation toimintaa
+Junie lisäsi `ReservationController` luokkaan `@Validated` annotaation ja se muutti `@Positive` annotaation toimintaa
 delete metodissa:
 
 ```java

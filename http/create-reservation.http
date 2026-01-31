@@ -8,6 +8,16 @@ Content-Type: application/json
   "endTime":   "2027-01-26T20:00:00+02:00"
 }
 
+### Create Reservation
+POST http://localhost:8080/api/reservations
+Content-Type: application/json
+
+{
+  "roomId": 2,
+  "startTime": "2027-01-26T17:28:00Z",
+  "endTime":   "2027-01-26T18:00:00Z"
+}
+
 
 ### Create Reservation startTime and endTime in past
 POST http://localhost:8080/api/reservations

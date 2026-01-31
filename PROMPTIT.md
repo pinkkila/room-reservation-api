@@ -6124,3 +6124,201 @@ Tehdyt muutokset:
 
 Dokumentaatio on kirjoitettu suomeksi noudattaen annettuja ohjeita teknisten termien käytöstä.
 
+---
+
+**Prompti 63**
+
+Are those inserts statements completely correct in the @file:data.sql  ?  Should they have timezone information also?
+
+Example:
+```postgresql
+INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '4 days 12:00:00', CURRENT_DATE + INTERVAL '4 days 13:00:00');
+```
+
+**Junie (Ask mode)**
+
+The current INSERT statements in data.sql are syntactically correct and will work in a PostgreSQL environment. However, they are not "completely correct" from an enterprise-level or production-ready perspective because they lack explicit timezone information, making them dependent on the database session's timezone configuration.
+
+Analysis of Timezone Handling
+
+
+1. Column Type: In schema.sql, the start_time and end_time columns are defined as TIMESTAMPTZ (Timestamp with Time Zone). This is the correct practice for storing absolute moments in time.
+2. Expression Type: The expression CURRENT_DATE + INTERVAL '1 day 08:00:00' produces a TIMESTAMP WITHOUT TIME ZONE (a "wall clock" time).
+3. Implicit Conversion: When you insert a TIMESTAMP WITHOUT TIME ZONE into a TIMESTAMPTZ column, PostgreSQL implicitly converts it using the current session's timezone.
+
+- If your database/session is in UTC, 08:00:00 becomes 08:00:00+00.
+- If your database/session is in Europe/Helsinki (UTC+2), 08:00:00 becomes 08:00:00+02 (which is 06:00:00 UTC).
+
+4. Inconsistency: This means the same data.sql script can result in different absolute times depending on where the database is running or how the client is configured.
+
+Recommended Improvements
+
+To follow the "Enterprise-level" and "highest standard" guidelines, you should make the timezone explicit.
+
+1. Explicit Timezone in Inserts
+   
+You can use the AT TIME ZONE operator to specify that the calculated timestamp should be interpreted as UTC.
+
+Example of an improved statement:
+
+```postgresql
+INSERT INTO reservation (room_id, start_time, end_time)
+VALUES (1, (CURRENT_DATE + INTERVAL '1 day 08:00:00') AT TIME ZONE 'UTC', (CURRENT_DATE + INTERVAL '1 day 09:00:00') AT TIME ZONE 'UTC');
+```
+
+For even better robustness (ensuring the CURRENT_DATE itself is based on UTC), you could use:
+
+```postgresql
+INSERT INTO reservation (room_id, start_time, end_time)
+VALUES (1, (date_trunc('day', now() AT TIME ZONE 'UTC') + INTERVAL '1 day 08:00:00') AT TIME ZONE 'UTC', ...);
+```
+
+2. Sequence Synchronization (Bonus finding)
+   
+While not directly related to timezones, there are two issues with the sequence syncing at the end of data.sql:
+- Redundant for reservation: Since your reservation inserts do not provide an explicit id, PostgreSQL automatically uses and increments the sequence. The SELECT setval(...) at the end is redundant.
+- Missing for room: In the room table, you do provide explicit IDs (1, 2, 3). PostgreSQL sequences for SERIAL columns are not automatically updated when you insert explicit values. You should add a setval for the room table to prevent future "unique constraint violation" errors when the application tries to create a new room.
+   
+Recommended sequence fix for room:
+
+```postgresql
+SELECT setval(pg_get_serial_sequence('room', 'id'), coalesce(max(id), 0) + 1, false) FROM room;
+```
+
+Summary Answer
+
+- Are they completely correct? They are "mostly correct" for a local dev environment but lack the explicitness required for high-standard production seed data.
+- Should they have timezone information? Yes. Adding AT TIME ZONE 'UTC' (or another specific zone) ensures that your test data is consistent across all developer machines and CI/CD environments, regardless of their local timezone settings.
+- Now they don't have? Correct, currently they rely on the implicit session timezone
+
+---
+
+**Prompti 64**
+
+I would like refactor insert statements in the @file:data.sql to ensuret the CURRENT_DATE is based on UTC.
+
+I'm wondering if this is a robust way to do it:
+
+```postgresql
+INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, (date_trunc('day', now() AT TIME ZONE 'UTC') + INTERVAL '1 day 08:00:00') AT TIME ZONE 'UTC', ...);
+```
+
+If you think there is better and more robust way to make those insert statements, show and explain that to me.
+
+--- 
+
+**Junie (Ask mode)**
+
+I have analyzed your request and the current data.sql file. While the expression you provided is robust, applying it to every single INSERT statement (35 in total) would make the file very verbose and harder to maintain.
+
+There is an even better and more "Enterprise-level" way to achieve this that is much cleaner:
+
+Recommended: Use SET TIME ZONE 'UTC'
+
+By adding a single line at the top of your data.sql file, you can ensure that the entire script executes in a UTC context.
+
+```postgresql
+SET TIME ZONE 'UTC';
+```
+
+Why this is better:
+
+1. Consistency: It ensures that CURRENT_DATE, now(), and all implicit conversions from TIMESTAMP to TIMESTAMPTZ are handled as UTC for the entire script.
+2. Maintainability: Your INSERT statements remain clean and readable. You can keep using the simple CURRENT_DATE + INTERVAL '...' syntax without repeating complex conversion logic 70 times (for start and end times).
+3. Robustness: It eliminates the risk of inconsistent data if the script is run in different environments (e.g., a developer's machine in one timezone and a CI/CD server in another).
+
+Alternative: Multi-row INSERT
+
+To further improve the script, you could also combine the individual INSERT statements into a single multi-row statement. This is more efficient and follows industry best practices for data seeding.
+
+Example combining both improvements
+
+```postgresql
+SET TIME ZONE 'UTC';
+
+-- ... Truncates and Room inserts ...
+
+INSERT INTO reservation (room_id, start_time, end_time) VALUES 
+(1, CURRENT_DATE + INTERVAL '1 day 08:00:00', CURRENT_DATE + INTERVAL '1 day 09:00:00'),
+(1, CURRENT_DATE + INTERVAL '1 day 10:00:00', CURRENT_DATE + INTERVAL '1 day 11:00:00'),
+-- ... all other 33 rows ...
+(2, CURRENT_DATE + INTERVAL '5 days 15:00:00', CURRENT_DATE + INTERVAL '5 days 16:00:00');
+```
+
+Recommendation
+
+I recommend using the SET TIME ZONE 'UTC'; approach. It is the most professional way to handle timezone-sensitive seed data in PostgreSQL.
+
+---
+
+**Prompti 65**
+
+Apply this:
+
+"I recommend using the SET TIME ZONE 'UTC'; approach. It is the most professional way to handle timezone-sensitive seed data in PostgreSQL."
+
+And apply also that multi-row refactor.
+
+
+**Junie**
+
+Update on task progress
+
+The user has approved the SET TIME ZONE 'UTC' approach and requested the multi-row INSERT refactor for data.sql. I will now modify data.sql to include SET TIME ZONE 'UTC'; at the top and consolidate the reservation inserts into multi-row statements. I will then verify the changes.
+
+data.sql +39 -35
+
+The database seed file was updated to reset and repopulate room and reservation tables with specific entries and synchronized ID sequences.
+
+Run test
+
+src/test/java/com/pinkkila/roomreservationapi/reservation/ReservationRepositoryTests.java
+
+Run test
+
+src/test/java/com/pinkkila/roomreservationapi/reservation/ReservationFullIntegrationTests.java
+
+Changed Files
+
+I have refactored data.sql to ensure consistent and robust handling of timezones for seed data, following enterprise best practices.
+
+Changes Made:
+
+1. Added SET TIME ZONE 'UTC';:
+- This directive at the beginning of data.sql ensures that the entire script executes in a UTC context.
+- This makes CURRENT_DATE and all implicit timestamp conversions consistent across all environments, regardless of the database session's default timezone.
+
+2. Multi-row INSERT Refactoring:
+- Consolidated 35 individual INSERT statements into two optimized multi-row INSERT statements (grouped by room_id).
+- This improves script readability, maintainability, and execution efficiency.
+
+3. Verification:
+- Verified that the project builds successfully.
+- Ran ReservationRepositoryTests and ReservationFullIntegrationTests (33 tests) to ensure that the seed data remains valid and that the changes didn't break any functionality. All tests passed.
+
+Updated data.sql Structure:
+
+```postgresql
+SET TIME ZONE 'UTC';
+
+TRUNCATE TABLE reservation RESTART IDENTITY CASCADE;
+TRUNCATE TABLE room RESTART IDENTITY CASCADE;
+
+-- Room Inserts...
+
+-- Multi-row Reservation Inserts for Room 1
+INSERT INTO reservation (room_id, start_time, end_time) VALUES 
+(1, CURRENT_DATE + INTERVAL '1 day 08:00:00', CURRENT_DATE + INTERVAL '1 day 09:00:00'),
+...
+(1, CURRENT_DATE + INTERVAL '5 days 16:00:00', CURRENT_DATE + INTERVAL '5 days 17:00:00');
+
+-- Multi-row Reservation Inserts for Room 2
+INSERT INTO reservation (room_id, start_time, end_time) VALUES 
+(2, CURRENT_DATE + INTERVAL '1 day 09:00:00', CURRENT_DATE + INTERVAL '1 day 10:00:00'),
+...
+(2, CURRENT_DATE + INTERVAL '5 days 15:00:00', CURRENT_DATE + INTERVAL '5 days 16:00:00');
+
+-- Sequence Sync...
+```
+
+---
