@@ -1,5 +1,7 @@
 # Analyysi
 
+Viittaan analyysissä tekoälyyn nimellä Junie, koska se oli käyttämäni työkalu omalla konfiguraatiollaan. Kun tarkoitukseni on viitata yleisesti tekoälyyn, käytän sanaa tekoäly. 
+
 ## 1. Mitä tekoäly teki hyvin?
 
 ### PostgreSQL Exclusion Constraint käyttö ratkaisemaan varausten päällekkäisyyteen liittyvä vaatimus
@@ -27,7 +29,7 @@ käyttäjälle sovelluksen sisäisiä toteutusyksityiskohtia ("internal implemen
     - any confidential data
 ```
 
-Junie kuitenkin toteutti ProblemDetailsin niin, että sisäisiä toteutuksia ilmoitettiin käyttäjälle:
+Junie kuitenkin toteutti `ProblemDetailsin` niin, että sisäisiä toteutuksia ilmoitettiin käyttäjälle:
 
 ```java
 
@@ -78,7 +80,7 @@ Vastaava eheyssääntöjä kuvaava sanavalinta Junien toteutuksessa oli myös:
 }
 ```
 
-Refaktoroitaessa DataIntegrityViolationExceptionin handler methodia, Junie halusi lähettää käyttäjälle tiedon
+Refaktoroitaessa `DataIntegrityViolationExceptionin` handler methodia, Junie halusi lähettää käyttäjälle tiedon
 tietokannan eheyssäännöistä ("Operation violates database constraint: " constraint):
 
 ```java
@@ -114,7 +116,7 @@ public ProblemDetail handleDataIntegrityViolationException(DataIntegrityViolatio
 
 ```
 
-MethodArgumentNotValidException handler-methodissa minulla oli seuraava koodi:
+`MethodArgumentNotValidException` handler methodissa minulla oli seuraava koodi:
 
 ```java
         Map<String, String> errors = ex.getBindingResult().getAllErrors().stream()
@@ -125,7 +127,7 @@ MethodArgumentNotValidException handler-methodissa minulla oli seuraava koodi:
         ));
 ```
 
-Junien tekemässä versiossa "Unknown field" (lopullisessa versiossa "invalidField") tuolla paikalla oli
+Junien tekemässä versiossa `Unknown field` (lopullisessa versiossa `invalidField`) paikalla oli
 `error.getObjectName()`, jonka olin poistanut, koska kyseinen kutsu palauttaa nimensä mukaisesti olion nimen ja tässä
 tapauksessa `reservationRequest`:
 
@@ -147,7 +149,7 @@ Junie teki minulle tästä kuitenkin seuraavan sivuhuomautuksen (Prompti 45):
 > 4. Professional Mapping: Replacing "Unknown field" with error.getObjectName() ensures that class-level constraints (
      like your >@ValidReservationRange) have a meaningful key in the error map instead of a generic placeholder.
 
-### @Validated annotaation käyttö RestController luokassa
+### @Validated annotaation käyttö RestController luokassa ja sen vaikutus poikkeuskäsittelyyn
 
 Junie lisäsi ReservationController luokkkaan `@Validated` annotaation ja se muutti `@Positive` annotaation toimintaa
 delete metodissa:
@@ -165,13 +167,13 @@ En ole vastaavissa tilanteessa käyttänyt `@Validated` annotaatiota ja kun koke
 aiheutti `ConstraintViolationException`. Kun `@Validated` annotaation otti pois, aiheutti negatiivinen `reservationId`
 `HandlerMethodValidationException`. Sovelluksessa `GlobalExceptionHandler` perii `ResponseEntityExceptionHandler`, josta
 jo löytyy `HandlerMethodValidationException`, niin olisi mielestäni ollut parempi, että poikkeus menee sen käsiteltäväki
-kuin asettaa uusi `ConstraintViolationException` handler metodi. Päädyin ylikirjoittamaan (@Override)
+kuin asettaa uusi `ConstraintViolationException` handler metodi. Päädyin ylikirjoittamaan (`@Override`)
 `handleHandlerMethodValidationException` metodin `ResponseEntityExceptionHandlerista`. Mielestäni tämä ratkaisu on
-selkeämpi ja helpommin ylläpidettävä ratkaisu.
+selkeämpi ja helpommin ylläpidettävä.
 
 ### Dublikaatit logitukset.
 
-Sovelluksen ReservationService luokassa tehdään seuraavanlaisia tarkistuksia:
+Sovelluksen `ReservationService` luokassa tehdään seuraavanlaisia tarkistuksia:
 
 ```java
 if(!roomRepository.existsById(request.roomId())){
@@ -179,16 +181,16 @@ if(!roomRepository.existsById(request.roomId())){
 }
 ```
 
-Junie laittoi jokaiseen näistä oman logituksen ja toisti saman logituksen myös GlobalExceptionHandlerissa. Tällöin
+Junie laittoi jokaiseen näistä oman logituksen ja toisti saman logituksen myös `GlobalExceptionHandlerissa`. Tällöin
 poikkeustilanteessa logiin olisi kirjautunut samasta tapahtumasta kaksi logia. Poistin turhat logit ja toteutin
-poikkeusten logituksen keskitetysti GlobalExceptionHandlerissa.
+poikkeusten logituksen keskitetysti `GlobalExceptionHandlerissa`.
 
 ## 3. Mitkä olivat tärkeimmät parannukset, jotka teit tekoälyn tuottamaan koodiin ja miksi?
 
 ### ProblemDetail olion attribuuttien arvojen muokkaaminen
 
-Muutin GlobalExceptionHandlerissa määritettyjen ProblemDetail attribuuttien arvot, niin että ne eivät paljasta
-käyttäjälle sovelluksen sisäisiä toteutusyksityiskohtia. Lisäsin ReservationControllerin testeihin assertit sille, että
+Muutin `GlobalExceptionHandlerissa` määritettyjen `ProblemDetail` attribuuttien arvot, niin että ne eivät paljasta
+käyttäjälle sovelluksen sisäisiä toteutusyksityiskohtia. Lisäsin `ReservationControllerin` testeihin assertit sille, että
 käyttäjälle menevät virheilmoitukset ovat halutun kaltaisia.
 
 RFC 9457 standardi kehottaa tarkastamaan virheviestien sisällön huolellisesti, jotta vältytään toteutusyksityiskohtien
@@ -202,8 +204,8 @@ Virheellinen eheyssääntö oli seuraava:
 CONSTRAINT start_in_future CHECK (start_time >= now())
 ```
 
-Alkuperäisesti virheellinen eheyssääntö päätyi tietokannan määritykseen omasta ajattelemattomuudestani heti projektin
-alussa ja suunnitteluvaiheessa. Sen lisäksi, että ehdotin tekoälylle kyseistä eheyssääntöä käytin mielestäni myös hieman
+Alkuperäisesti virheellinen eheyssääntö päätyi relaation määritykseen omasta ajattelemattomuudestani heti projektin
+alussa ja suunnitteluvaiheessa. Sen lisäksi, että ehdotin Junielle kyseistä eheyssääntöä käytin mielestäni myös hieman
 heikkoa promptia (Prompti 4):
 
 > I think it would be good if the database also had constraints for
@@ -221,12 +223,12 @@ heikkoa promptia (Prompti 4):
 
 *"I think it would be good..."* on ehkä hieman voimakas muotoilu, jolloin tekoäly ei ehkä kauhean herkästi lähde
 vastustelemaan. Kun myöhemmin promptissa kysyin: *"What do you think?"* ja vaikka eheyssääntö ei ole millään tavalla
-järkeä, lisäsi tekoäly sen suunnitelmaan ja myöhemmin itse toteutukseen.
+järkevä, lisäsi Junie sen suunnitelmaan ja myöhemmin itse toteutukseen.
 
-Alkuperäisestikin sovellus tarkistaa, että start_time ei ole menneisyydessä ja poistin tämän virheellisen eheyssäännön
+Alkuperäisestikin sovellus tarkistaa, että `start_time` ei ole menneisyydessä ja poistin tämän virheellisen eheyssäännön
 relaation määrittelystä.
 
-Kyseinen eheyssääntö tarkoittaisi sitä, että tietokanta pysyy eheänä vain ja ainoastaan silloin, kun start_time
+Kyseinen eheyssääntö tarkoittaisi sitä, että tietokanta pysyy eheänä vain ja ainoastaan silloin, kun `start_time`
 sarakkeen arvot ovat tulevaisuudessa. Tietokannan eheyden rikkoutuminen olisi siis väistämätöntä.
 
 ### Lähteet

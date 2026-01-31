@@ -4300,6 +4300,8 @@ returns: { "type": "urn:room-reservation-api:invalid-query-parameters", "title":
 
 I don't like that there is that 'java.lang.String' because it exposes the internal implementation details to the users. What is the cleanes way to change that message to "Invalid value"?
 
+**Junie (ask mode)**
+
 Run command
 
 find . -name "messages.properties"
