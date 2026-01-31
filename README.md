@@ -121,7 +121,7 @@ Poistaa olemassa olevan varauksen.
 - Java 21 (Gradle Wrapperin ja sovelluksen ajamiseen).
 - Docker Desktop (tai muu Docker engine) asennettuna ja käynnissä.
 
-### Ajaminen paikallisesti (Java)
+### Sovelluksen ajaminen - Java/Gradle
 
 Käynnistä sovellus ja tietokanta komennolla:
 
@@ -132,7 +132,7 @@ Käynnistä sovellus ja tietokanta komennolla:
 Spring Bootin Docker Compose käynnistää automaattisesti tietokannan Docker-kontissa. Sovellus käynnistyy oletuksena
 osoitteeseen `http://localhost:8080`.
 
-### Ajaminen Dockerilla (koneella ei tarvitse olla Javaa asennettuna)
+### Sovelluksen ajaminen - Docker
 
 Käynnistä sovellus ja tietokanta komennolla:
 
@@ -140,8 +140,8 @@ Käynnistä sovellus ja tietokanta komennolla:
 docker-compose -f compose.demo.yaml up --build
 ```
 
-Tämä komento rakentaa sovelluksen Docker-imagen ja käynnistää sekä tietokannan että sovelluksen. Sovellus on saatavilla
-osoitteessa `http://localhost:8080`.
+Komento rakentaa sovelluksen Docker imagen ja käynnistää sekä tietokannan että sovelluksen. Sovellus käynnistyy oletuksena
+osoitteeseen `http://localhost:8080`.
 
 **Seuraava esimerkki hakee kaikki huoneen 1 varaukset:**
 
