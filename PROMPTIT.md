@@ -30,7 +30,7 @@ with Spring Boot using Spring Data JDBC and PostgreSQL database. Given these con
 (Spring Boot, Spring Data JDBC, PostgreSQL), what are the commonly used and well-established approaches for preventing
 overlapping reservations, and what are the trade-offs between them?
 
-**Junie (Ask mode)**
+**Junie 🤖 (Ask mode)**
 
 Context7/resolve-library-id
 
@@ -192,7 +192,7 @@ Plan requirements:
 - Make the plan extremely concise. Sacrifice grammar for the sake of concision.
 - At the end of the plan, give me a list of unresolved questions to answer, if any.
 
-**Junie**
+**Junie 🤖**
 
 Run command
 
@@ -254,7 +254,7 @@ Unresolved Questions:
 
 - Don't generate, modify, or refactor any code. Only update the plan.
 
-**Junie**
+**Junie 🤖**
 
 create-reservation-plan.md +3 -2
 
@@ -296,7 +296,7 @@ update the plan accordingly. @file:create-reservation-plan.md
 
 - Don't generate, modify, or refactor any code. Only update the plan.
 
-**Junie**
+**Junie 🤖**
 
 create-reservation-plan.md +7 -1
 
@@ -338,7 +338,7 @@ From create-reservation-plan.md @file:create-reservation-plan.md execute the fol
 - Ensure implementation follows `/.junie/guidelines.md`.
 - Mark the step as done `[x]` in the plan file once a step is completed.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -422,7 +422,7 @@ From create-reservation-plan.md @file:create-reservation-plan.md execute the fol
 - Ensure implementation follows `/.junie/guidelines.md`.
 - Mark the step as done `[x]` in the plan file once a step is completed.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -510,7 +510,7 @@ From create-reservation-plan.md @file:create-reservation-plan.md execute the fol
 - Ensure implementation follows `/.junie/guidelines.md`.
 - Mark the step as done `[x]` in the plan file once a step is completed.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -591,7 +591,7 @@ From create-reservation-plan.md @file:create-reservation-plan.md execute the fol
 - Ensure implementation follows `/.junie/guidelines.md`.
 - Mark the step as done `[x]` in the plan file once a step is completed.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -760,7 +760,7 @@ The response should look like this:
 
 If I am mistaken, or you disagree, please don't change the code and explain to me how I'm wrong.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -890,7 +890,7 @@ From create-reservation-plan.md @file:create-reservation-plan.md execute the fol
 - Ensure implementation follows `/.junie/guidelines.md`.
 - Mark the step as done `[x]` in the plan file once a step is completed.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -1100,7 +1100,7 @@ Plan requirements:
 - Make the plan extremely concise. Sacrifice grammar for the sake of concision.
 - At the end of the plan, give me a list of unresolved questions to answer, if any.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -1156,7 +1156,7 @@ Unresolved Questions:
 
 - Don't generate, modify, or refactor any code. Only update the plan.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -1198,7 +1198,7 @@ Also, now there is no "sort" field in the ReservationQuery?
 What are the best practice and well-established approaches for validating query parameters and handling defaults? If
 there are multiple good options, can you explain those to me and also explain what are the trade-offs between them?
 
-**Junie (Ask mode)**
+**Junie 🤖 (Ask mode)**
 
 In a professional Spring Boot application, there are several well-established patterns for handling query parameters and
 their defaults. Choosing the right one depends on where you want the "source of truth" for defaults to live and how much
@@ -1347,7 +1347,7 @@ Do the refinement to the plan that you recommended:
 
 - Don't generate, modify, or refactor any code. Only update the plan.
 
-**Junie**
+**Junie 🤖**
 
 get-reservations-plan.md +7 +3
 
@@ -1399,7 +1399,7 @@ From create-reservation-plan.md @file:get-reservations-plan.md execute the follo
 - Ensure implementation follows `/.junie/guidelines.md`.
 - Mark the step as done `[x]` in the plan file once a step is completed.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -1470,7 +1470,7 @@ From create-reservation-plan.md @file:get-reservations-plan.md execute the follo
 - Ensure implementation follows `/.junie/guidelines.md`.
 - Mark the step as done `[x]` in the plan file once a step is completed.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -1546,7 +1546,7 @@ From create-reservation-plan.md @file:get-reservations-plan.md execute the follo
 - Ensure implementation follows `/.junie/guidelines.md`.
 - Mark the step as done `[x]` in the plan file once a step is completed.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -1624,7 +1624,7 @@ From create-reservation-plan.md @file:get-reservations-plan.md execute the follo
 - Ensure implementation follows `/.junie/guidelines.md`.
 - Mark the step as done `[x]` in the plan file once a step is completed.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -1696,7 +1696,7 @@ From create-reservation-plan.md @file:get-reservations-plan.md execute the follo
 - Ensure implementation follows `/.junie/guidelines.md`.
 - Mark the step as done `[x]` in the plan file once a step is completed.
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -1852,7 +1852,7 @@ Modify method `handleMethodArgumentNotValid` in the GlobalEceptionHandler @file:
 If you think that this is not a good idea, don't do anything and explain why.
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -1965,7 +1965,7 @@ Plan requirements:
 - At the end of the plan, give me a list of unresolved questions to answer, if any.
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -2009,7 +2009,7 @@ Unresolved Questions:
 
 - Don't generate, modify, or refactor any code. Only update the plan.
 
-**Junie**
+**Junie 🤖**
 
 delete-reservations-plan.md +1
 
@@ -2049,7 +2049,7 @@ From delete-reservation-plan.md @file:delete-reservation-plan.md execute the fol
 - Mark the step as done `[x]` in the plan file once a step is completed.
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -2151,7 +2151,7 @@ From delete-reservation-plan.md @file:delete-reservation-plan.md execute the fol
 - Mark the step as done `[x]` in the plan file once a step is completed.
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -2403,7 +2403,7 @@ If isolation is broken:
 - Highlight **blocking issues first**
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -2550,7 +2550,7 @@ If a test is weak:
 - **Rewrite it with stronger assertions**
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -2653,7 +2653,7 @@ Add this to the application.yaml:
 That probably breaks some tests, so run the tests and fix them.
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -2721,7 +2721,7 @@ For development and demo purposes, it would be nice to have also reservation dat
 Also, add a script to the data.sql to make sure that when reservations are deleted, the id generation in the database can keep up with deleted ids in the reservation table.  
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -2799,7 +2799,7 @@ Verification:
 
 Is there a particular reason why full integration tests are located in separate files? I mean that is there a reason why there is CreateReservationTests, DeleteReservationTests and GetReservationTest and not one file called, for example, ReservationFullIntegrationTests?
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -2864,7 +2864,7 @@ Why there is @AutoConfigureWebTestClient annotation in the ReservationIntegreati
 
 It says this in class documentation: "Annotation that can be applied to a test class to enable a WebTestClient that is bound directly to the application. Tests do not rely upon an HTTP server and use mock requests and responses. At the moment, only WebFlux applications are supported."
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -2939,7 +2939,7 @@ If you think that this is a good idea, implement it. If it is not a good idea, d
 
 
 
-**Junie**
+**Junie 🤖**
 
 Run command
 
@@ -3012,7 +3012,7 @@ Then there is empty test-data.sql left there, but is it must anyway to prevent t
 If there are multiple solutions, tell what those are and what are pros and cons. 
 
 
-**Junie (ask mode**
+**Junie 🤖 (ask mode**
 
 Yes, your intuition is correct. Removing hardcoded data from test-data.sql and moving to a programmatic setup in Java is a much more professional, scalable, and future-proof approach.
 
@@ -3122,7 +3122,7 @@ Your final recommendation is good. You can implement it.
 "This approach ensures that if you ever add new mandatory fields to the Room entity or change how rooms are structured, your tests will be easy to adapt and won't be broken by a shared SQL file."
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -3257,7 +3257,7 @@ Also, I would like to make this as future-proof and easy to maintain/read as pos
 Do you understand what I mean, and do you think that this would be a good idea? Can you give me good practice and well-established approaches for managing test data in this kind of situation? And also what are the pros and cons of them?  
 
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 Yes, I completely understand your point, and I agree that your concerns are very valid. Using the API (POST requests) to set up state for other integration tests (like GET or DELETE) is a common "shortcut" that often leads to maintenance headaches.
 
@@ -3402,7 +3402,7 @@ reservationRepository.save(
 );
 ```
 
-**Junie**
+**Junie 🤖**
 
 Your intuition is spot on. While Lombok's @Builder is excellent for production code, a custom Test Data Builder is the "Gold Standard" for enterprise testing because it allows you to decouple your test data requirements from the technical structure of your entities.
 
@@ -3611,7 +3611,7 @@ reservationRepository.save(
 Place the `ReservationTestData` class in a separate package called 'testdata': src/test/java/com/pinkkila/roomreservationapi/testdata/
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -3724,7 +3724,7 @@ This approach ensures that our tests are:
 
 What the @ResponseStatus annotation does in this ReservationNotFoundException @file:ReservationNotFoundException.java class? There is also separate handler method for ReservationNotFoundException in the GlobalExceptionHandler @file:GlobalExceptionHandler.java
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 In this project, the @ResponseStatus(HttpStatus.NOT_FOUND) annotation on the ReservationNotFoundException class and the @ExceptionHandler method in GlobalExceptionHandler work together, but they have a specific order of precedence:
 
@@ -3760,7 +3760,7 @@ While the @ExceptionHandler in GlobalExceptionHandler is the one doing the heavy
 
 What does the @Repository annotation do in the ReservationRepository @file:ReservationRepository.java ?
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 In the ReservationRepository class, the @Repository annotation serves three primary purposes within the Spring Framework:
 
@@ -3799,7 +3799,7 @@ In your ReservationRepository, the annotation ensures that:
 Why there is @Validated annotation in this ReservationController @file:ReservationController.java class?
 
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 In the ReservationController class, the @Validated annotation is required to enable Method-Level Validation for individual method parameters that are not part of a request body or a model object.
 
@@ -3845,7 +3845,7 @@ The @Validated annotation is the "switch" that allows Spring to enforce the @Pos
 
 I removed @Validated annotation, and tested what exception negative path variable creates, and it was HandlerMethodValidationException. Would it be more convenient to override that in the GlobalExceptionHandler than use @Validated annotation with separate ConstraintViolationException handler?
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 Yes, it is generally more convenient and considered a best practice in modern Spring applications (Spring Boot 3.2+ / Spring 6.1+) to use the native HandlerMethodValidationException for controllers instead of the older @Validated + ConstraintViolationException approach.
 
@@ -3906,7 +3906,7 @@ Using HandlerMethodValidationException is the modern "Spring-way" for web valida
 
 Now ProblemDetails reponses have this type value "about:blank". I don't want to maintain documentation about the problems. How I should configure this ProblemDetail type value. What are my options and what are pros and cons of them?
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 Search in project "ProblemDetail"
 
@@ -4006,7 +4006,7 @@ implementation 'org.postgresql:postgresql'
 Does that have any drawbacks?
 And also is my approach correct here? Or is there better ways to implement this? Take a look at the schema.sql @file:schema.sql  and this GlobalExceptionHandler @file:GlobalExceptionHandler.java  and then give me your analysis. I want to which constrain is violated and then set detail accordingly.
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 To provide a high-quality ProblemDetail response when a DataIntegrityViolationException occurs, your proposed approach is correct and follows industry standards for projects committed to a specific database technology.
 
@@ -4128,7 +4128,7 @@ public ProblemDetail handleDataIntegrityViolationException(DataIntegrityViolatio
 If the validation works properly, only exception that should happen in this method is the reservation_room_id_tstzrange_excl and those others act as a defense in depth. This should be commented so that it is clear why this is implemented like this. There should also be proper logging to inform that validation is not working properly.
 
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 Search in project "ReservationRequest"
 
@@ -4217,7 +4217,7 @@ Key Changes:
 
 Take a close look at the ReservationContoller, ReservationRequest, ReservationQuery and GlovalExceptionHanlder. What is the most robust way to configure handleMethodArgumentNotValid method in GlobalExceptionHandler?   @file:GlobalExceptionHandler.java  @file:ReservationController.java @file:ReservationRequest.java @file:ReservationQuery.java
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 To configure handleMethodArgumentNotValid in a robust and readable way, you should address three main areas: distinguishing the source of the validation error (Request Body vs. Query Parameters), handling all types of validation errors (Field vs. Object/Global), and maintaining consistency with your ErrorType and ProblemDetail structure.
 
@@ -4300,7 +4300,7 @@ returns: { "type": "urn:room-reservation-api:invalid-query-parameters", "title":
 
 I don't like that there is that 'java.lang.String' because it exposes the internal implementation details to the users. What is the cleanes way to change that message to "Invalid value"?
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 Run command
 
@@ -4384,6 +4384,8 @@ This is clean, professional, and follows the guidelines for maintainable and pro
 **Prompti 46**
 
 Take a first close look at the ReservationQuery @file:ReservationQuery.java  and ReservationService @file:ReservationService.java . I don't like how the whitelisting is made right now. I think this is something that is made almost every professional application. What are the most well-established and best practice solutions to hande sorting validation? And what are pros and cons?
+
+**Junie 🤖 (ask mode)**
 
 Search in project "Query"
 
@@ -4486,9 +4488,9 @@ Can you implement this, please:
 
 If there are any questions, ask them first and don't do anything before everything is clear.
 
-**Junie**
+**Junie 🤖**
 
-Junie asks questions
+Junie 🤖 asks questions
 
 I have a couple of questions before I proceed with the implementation:
 
@@ -4503,7 +4505,7 @@ Once these points are clear, I will implement the custom annotation, update the 
 2. Your example is good: "Invalid sort field. Allowed fields are: {value}". Use that.
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress:
 
@@ -4665,7 +4667,7 @@ public class SortWhitelistValidator implements ConstraintValidator<SortWhitelist
 @file:SortWhitelistValidator.java
 Is List the best option here?
 
-**Junie**
+**Junie 🤖**
 
 In the current implementation of SortWhitelistValidator, List<String> is used to store the allowed fields. While it is functional, it is not the best option for this specific use case.
 
@@ -4727,7 +4729,7 @@ Conclusion: You should switch to Set<String>. It is more efficient, more express
 
 Take a close look at the GlobalExceptionHandler class @file:GlobalExceptionHandler.java . Are those log messages and how logs are handled here considered good and following best practices? If not, how should I modify them?
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 Search in project "ErrorType"
 
@@ -4840,7 +4842,7 @@ Summary of Best Practices Followed
 
 Can you give me fixed log messages to all logs that happen in this GlobalExceptionHandler class, please? @file:GlobalExceptionHandler.java
 
-**Junie**
+**Junie 🤖**
 
 To align with enterprise best practices and your project guidelines—specifically regarding PII protection, removing redundancy, and fixing typos—here are the fixed log messages for the GlobalExceptionHandler class.
 
@@ -4947,7 +4949,7 @@ org.postgresql.util.PSQLException
 This is probably quite a common issue, so what are the best practices and well-established solutions here? And what are the pros and cons of them?
 
 
-**Junie**
+**Junie 🤖**
 
 Search in project "ErrorType"
 
@@ -5024,7 +5026,7 @@ public ProblemDetail handleDataIntegrityViolationException(DbActionExecutionExce
 
 Does this have downsides and if what they are?
 
-**Junie**
+**Junie 🤖**
 
 Removing DataIntegrityViolationException from the handler while keeping only DbActionExecutionException has several significant downsides. While it might seem like a cleanup if you only see the latter in your logs, doing so would make your error handling brittle and inconsistent.
 
@@ -5138,7 +5140,7 @@ public ProblemDetail handleDataIntegrityViolationException(RuntimeException ex) 
 I don't like that it is handling at the same time two quite different exceptions. I think I should separate this and create a helper method from the PSQLException? Do you see any downsides of that?
 
 
-**Junie**
+**Junie 🤖**
 
 Refactoring the handleDataIntegrityViolationException method to separate the exception types and extract the PostgreSQL-specific logic into a helper method is a great idea for improving code readability and maintainability. It aligns with the "Clean Code" principles and the "Maintainable" and "Professional" requirements in your guidelines.
 
@@ -5218,7 +5220,7 @@ Summary of Downsides to Watch For:
 
 No, what I meant was to have one handler for DbActionExecutionException and one for DataIntegrityViolationException.
 
-**Junie**
+**Junie 🤖**
 
 Understood. If you prefer to have two distinct entry points for DbActionExecutionException and DataIntegrityViolationException, you can certainly do so. This approach can be cleaner if you anticipate needing different logging or custom handling for each wrapper exception in the future.
 
@@ -5295,7 +5297,7 @@ Separating them is a valid architectural choice that improves readability by bei
 That solution does not solve the problem that I'm thinking here. I am thinking that how is it considered to be good to have two different exceptions coupled or tied up together like I now have? For example, if DbActionExecutionException is thrown, and it is not related at all about constaints violation?
 
 
-**Junie**
+**Junie 🤖**
 
 Your concern is valid. Coupling DbActionExecutionException and DataIntegrityViolationException in a single handler is a trade-off between convenience (DRY code) and error precision.
 
@@ -5403,6 +5405,8 @@ private Optional<ProblemDetail> resolveConstraintError(RuntimeException ex) {
     return Optional.empty();
 }
 ```
+
+**Junie 🤖**
 
 To properly decouple constraint handling from general persistence failures while maintaining a clean, DRY (Don't Repeat Yourself) approach, you can implement the two separate handlers and the private helper method as follows.
 
@@ -5544,7 +5548,7 @@ private Optional<ProblemDetail> resolveConstraintError(RuntimeException ex) {
 I would like to replace string literals representing database constraint names with enum constants. What is the most effective, robust, and cleanest way to implement that in this method?
 
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 Search in project "reservation_overlap_excl"
 
@@ -5688,7 +5692,7 @@ void createReservation_Overlapping_Reservation_Returns400() throws Exception {
 @file:ReservationController.java  @file:ReservationControllerTests.java
 
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 Context7/resolve-library-id
 
@@ -5786,7 +5790,7 @@ First take a close look at the ReservationController @file:ReservationController
 @file:GlobalExceptionHandler.java @file:ErrorType.java  @file:ReservationController.java
 
 
-**Junie**
+**Junie 🤖**
 
 Run test
 
@@ -5902,7 +5906,7 @@ CREATE TABLE IF NOT EXISTS reservation (
 
 I mean when time goes by and the start_time is not in the future anymore, is that constraint basically violated in the persisted data?
 
-**Junie (ask mode)**
+**Junie 🤖 (ask mode)**
 
 Search in project "start_in_future
 
@@ -5985,7 +5989,7 @@ Modify only code that is in ReservationIntegrationTest.
 If there is something ambiguous, ask before implementing.
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -6081,7 +6085,7 @@ All tests in ReservationFullIntegrationTests.java are passing.
 Take a close look at the whole repo. Then create a REST API documentation and 'How to run' (Java and Docker) to the README.md file. Write everything in Finnish, except technical English words that are commonly used in Finnish as English.
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
@@ -6135,7 +6139,7 @@ Example:
 INSERT INTO reservation (room_id, start_time, end_time) VALUES (1, CURRENT_DATE + INTERVAL '4 days 12:00:00', CURRENT_DATE + INTERVAL '4 days 13:00:00');
 ```
 
-**Junie (Ask mode)**
+**Junie 🤖 (Ask mode)**
 
 The current INSERT statements in data.sql are syntactically correct and will work in a PostgreSQL environment. However, they are not "completely correct" from an enterprise-level or production-ready perspective because they lack explicit timezone information, making them dependent on the database session's timezone configuration.
 
@@ -6207,7 +6211,7 @@ If you think there is better and more robust way to make those insert statements
 
 --- 
 
-**Junie (Ask mode)**
+**Junie 🤖 (Ask mode)**
 
 I have analyzed your request and the current data.sql file. While the expression you provided is robust, applying it to every single INSERT statement (35 in total) would make the file very verbose and harder to maintain.
 
@@ -6260,7 +6264,7 @@ Apply this:
 And apply also that multi-row refactor.
 
 
-**Junie**
+**Junie 🤖**
 
 Update on task progress
 
