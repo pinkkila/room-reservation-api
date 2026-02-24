@@ -1,10 +1,10 @@
 package com.pinkkila.roomreservationapi.reservation;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pinkkila.roomreservationapi.exception.ErrorType;
 import com.pinkkila.roomreservationapi.exception.GlobalExceptionHandler;
 import com.pinkkila.roomreservationapi.reservation.exception.ReservationNotFoundException;
 import com.pinkkila.roomreservationapi.room.exception.RoomNotFoundException;
-import com.pinkkila.roomreservationapi.testdata.ReservationTestData;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -18,11 +18,13 @@ import org.springframework.data.relational.core.conversion.DbAction;
 import org.springframework.data.relational.core.conversion.DbActionExecutionException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import static com.pinkkila.roomreservationapi.testdata.ReservationTestData.anOneHourReservation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -36,6 +38,9 @@ class ReservationControllerTests {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @MockitoBean
     private ReservationService reservationService;
 
@@ -46,8 +51,7 @@ class ReservationControllerTests {
         @Test
         @DisplayName("Successful creation should return 201 Created with response body")
         void createReservation_Success_Returns201() throws Exception {
-            var reservationBuilder = ReservationTestData.anOneHourReservation().withRoom(1);
-            ReservationResponse response = reservationBuilder.asResponse(1L);
+            ReservationResponse response = anOneHourReservation().withRoom(1).asResponse(1L);
 
             when(reservationService.createReservation(any(ReservationRequest.class)))
                     .thenReturn(response);
@@ -65,27 +69,24 @@ class ReservationControllerTests {
                             .content(requestJson))
                     .andExpect(status().isCreated())
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(jsonPath("$.id").value(response.id()))
-                    .andExpect(jsonPath("$.roomId").value(response.roomId()))
-                    .andExpect(jsonPath("$.startTime").value(response.startTime().toString()))
-                    .andExpect(jsonPath("$.endTime").value(response.endTime().toString()));
+                    .andExpect(content().json(objectMapper.writeValueAsString(response), JsonCompareMode.STRICT));
         }
-        
+
         @Test
         @DisplayName("Overlapping reservation during creation should return 409 Conflict")
         void createReservation_Overlapping_Reservation_Returns409() throws Exception {
             var psqlException = mock(org.postgresql.util.PSQLException.class);
             var serverError = mock(org.postgresql.util.ServerErrorMessage.class);
-            
+
             when(psqlException.getServerErrorMessage()).thenReturn(serverError);
             when(serverError.getConstraint()).thenReturn("reservation_overlap_excl");
-            
+
             var dbActionExecutionException = new DbActionExecutionException(mock(DbAction.class), psqlException);
-            
+
             when(reservationService.createReservation(any(ReservationRequest.class)))
                     .thenThrow(dbActionExecutionException);
-            
-            var request = ReservationTestData.anOneHourReservation().withRoom(1).asRequest();
+
+            var request = anOneHourReservation().withRoom(1).asRequest();
             String requestJson = """
                     {
                       "roomId": %d,
@@ -93,7 +94,7 @@ class ReservationControllerTests {
                       "endTime": "%s"
                     }
                     """.formatted(request.roomId(), request.startTime(), request.endTime());
-            
+
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestJson))
@@ -103,12 +104,12 @@ class ReservationControllerTests {
                     .andExpect(jsonPath("$.detail").value("The room is already reserved for the requested time period."))
                     .andExpect(jsonPath("$.errors").doesNotExist());
         }
-        
+
         @Test
         @DisplayName("Reservation with end time before start time should return 400 with field errors")
         void createReservation_EndTimeBeforeStartTime_Returns400WithErrors() throws Exception {
             var startTime = OffsetDateTime.now().plusDays(1).withNano(0);
-            var request = ReservationTestData.anOneHourReservation()
+            var request = anOneHourReservation()
                     .withRoom(1)
                     .withStartTime(startTime)
                     .withEndTime(startTime.minusHours(1))
@@ -121,7 +122,7 @@ class ReservationControllerTests {
                       "endTime": "%s"
                     }
                     """.formatted(request.roomId(), request.startTime(), request.endTime());
-            
+
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(invalidJson))
@@ -132,12 +133,12 @@ class ReservationControllerTests {
                     .andExpect(jsonPath("$.errors.invalidField").value("Start time must be before end time"))
                     .andExpect(jsonPath("$.errors.size()").value(1));
         }
-        
+
         @Test
         @DisplayName("Reservation with start and end time in past should return 400 with field errors")
         void createReservation_StartTimeEndTimeInPast_Returns400WithErrors() throws Exception {
             var startTime = OffsetDateTime.now().minusDays(1).withNano(0);
-            var request = ReservationTestData.anOneHourReservation()
+            var request = anOneHourReservation()
                     .withRoom(1)
                     .withStartTime(startTime)
                     .asRequest();
@@ -160,16 +161,16 @@ class ReservationControllerTests {
                     .andExpect(jsonPath("$.errors.startTime").value("Start time must be in the future"))
                     .andExpect(jsonPath("$.errors.endTime").value("End time must be in the future"))
                     .andExpect(jsonPath("$.errors.size()").value(2));
-            
+
         }
-        
+
         @Test
         @DisplayName("Creation for non-existent room should return 404 Not Found")
         void createReservation_RoomNotFound_Returns404() throws Exception {
             when(reservationService.createReservation(any(ReservationRequest.class)))
                     .thenThrow(new RoomNotFoundException(999));
-            
-            var request = ReservationTestData.anOneHourReservation().withRoom(999).asRequest();
+
+            var request = anOneHourReservation().withRoom(999).asRequest();
             String requestJson = """
                     {
                       "roomId": %d,
@@ -177,7 +178,7 @@ class ReservationControllerTests {
                       "endTime": "%s"
                     }
                     """.formatted(request.roomId(), request.startTime(), request.endTime());
-            
+
             mockMvc.perform(post("/api/reservations")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestJson))
@@ -187,11 +188,11 @@ class ReservationControllerTests {
                     .andExpect(jsonPath("$.detail").value("Room with ID 999 not found"))
                     .andExpect(jsonPath("$.errors").doesNotExist());
         }
-        
+
         @Test
         @DisplayName("Malformed JSON should return 400")
         void createReservation_MalformedJson_Returns400WithErrors() throws Exception {
-            var request = ReservationTestData.anOneHourReservation().withRoom(1).asRequest();
+            var request = anOneHourReservation().withRoom(1).asRequest();
             String malformedJson = """
                     {
                       "roomId": %d,
@@ -209,12 +210,12 @@ class ReservationControllerTests {
                     .andExpect(jsonPath("$.detail").value("Malformed or invalid JSON payload"))
                     .andExpect(jsonPath("$.errors").doesNotExist());
         }
-        
+
         @Test
         @DisplayName("Invalid fields should return 400 with field errors")
         void createReservation_InvalidFields_Returns400WithFieldErrors() throws Exception {
             var startTime = OffsetDateTime.now().plusDays(1).withNano(0);
-            var request = ReservationTestData.anOneHourReservation()
+            var request = anOneHourReservation()
                     .withStartTime(startTime)
                     .withEndTime(startTime.plusHours(1))
                     .asRequest();
@@ -245,7 +246,7 @@ class ReservationControllerTests {
             when(reservationService.createReservation(any(ReservationRequest.class)))
                     .thenThrow(dbActionExecutionException);
 
-            var request = ReservationTestData.anOneHourReservation().withRoom(1).asRequest();
+            var request = anOneHourReservation().withRoom(1).asRequest();
             String requestJson = """
                     {
                       "roomId": %d,
@@ -272,7 +273,7 @@ class ReservationControllerTests {
         @Test
         @DisplayName("Should return 200 for page of reservations with default values")
         void getReservations_SuccessDefault_Returns200() throws Exception {
-            ReservationResponse res1 = ReservationTestData.anOneHourReservation()
+            ReservationResponse res1 = anOneHourReservation()
                     .withRoom(1)
                     .asResponse(1L);
             Page<ReservationResponse> page = new PageImpl<>(List.of(res1), PageRequest.of(0, 20), 1);
@@ -282,14 +283,7 @@ class ReservationControllerTests {
 
             mockMvc.perform(get("/api/reservations"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content[0].id").value(res1.id()))
-                    .andExpect(jsonPath("$.content[0].roomId").value(res1.roomId()))
-                    .andExpect(jsonPath("$.content[0].startTime").value(res1.startTime().toString()))
-                    .andExpect(jsonPath("$.content[0].endTime").value(res1.endTime().toString()))
-                    .andExpect(jsonPath("$.page.totalElements").value(1))
-                    .andExpect(jsonPath("$.page.size").value(20))
-                    .andExpect(jsonPath("$.page.number").value(0))
-                    .andExpect(jsonPath("$.page.totalPages").value(1));
+                    .andExpect(content().json(objectMapper.writeValueAsString(page), JsonCompareMode.STRICT));
 
             ArgumentCaptor<ReservationQuery> captor = ArgumentCaptor.forClass(ReservationQuery.class);
             verify(reservationService).getReservations(captor.capture());
@@ -305,7 +299,7 @@ class ReservationControllerTests {
         @Test
         @DisplayName("Should return 200 for reservations filtered by roomId in second page")
         void getReservations_SuccessWithFiltes_Returns200() throws Exception {
-            ReservationResponse res1 = ReservationTestData.anOneHourReservation()
+            ReservationResponse res1 = anOneHourReservation()
                     .withRoom(10)
                     .asResponse(1L);
             Page<ReservationResponse> page = new PageImpl<>(List.of(res1), PageRequest.of(1, 10), 11);
@@ -320,14 +314,7 @@ class ReservationControllerTests {
                             .param("sortBy", "endTime")
                             .param("sortOrder", "desc"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content[0].id").value(res1.id()))
-                    .andExpect(jsonPath("$.content[0].roomId").value(res1.roomId()))
-                    .andExpect(jsonPath("$.content[0].startTime").value(res1.startTime().toString()))
-                    .andExpect(jsonPath("$.content[0].endTime").value(res1.endTime().toString()))
-                    .andExpect(jsonPath("$.page.totalElements").value(11))
-                    .andExpect(jsonPath("$.page.size").value(10))
-                    .andExpect(jsonPath("$.page.number").value(1))
-                    .andExpect(jsonPath("$.page.totalPages").value(2));
+                    .andExpect(content().json(objectMapper.writeValueAsString(page), JsonCompareMode.STRICT));
 
             ArgumentCaptor<ReservationQuery> captor = ArgumentCaptor.forClass(ReservationQuery.class);
             verify(reservationService).getReservations(captor.capture());
