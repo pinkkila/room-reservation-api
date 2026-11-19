@@ -20,6 +20,10 @@ Toteutuksena valmistui Spring Boot REST API, joka käyttää PostgreSQL-tietokan
 - Suggested refactoring
 - Refactoring
 
+### Claude Code
+
+- Käytetty tehtävän palautuksen jälkeen `ReservationControllerTests` refaktorointiin.
+
 ## Oletukseni
 
 ### Tehtävänannon vaatimus: *"Varausten katselu: Listaa kaikki tietyn huoneen varaukset."*
